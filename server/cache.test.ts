@@ -422,7 +422,68 @@ describe('Gateway Caching & Coalescing Integration', () => {
 
     const res1 = await processExplainRequest({ requestId: 'mock_1', scenario: 'baseline_summary', facts: baselineFacts }, mockAdapter, { cache });
     expect((res1.response as any).source).toBe('mock');
+    expect((res1.response as any).provider).toBe('mock');
     expect((res1.response as any).cacheHit).toBe(false);
     expect(cache.size()).toBe(0); // Zero entries stored
+  });
+
+  it('correctly labels provider as groq for Groq adapter and gemini for Gemini adapter', async () => {
+    const cache = new ExplanationServerCache();
+    const groqAdapter: ExplanationProviderAdapter = {
+      name: 'groq',
+      model: 'openai/gpt-oss-20b',
+      generateExplanation: vi.fn().mockResolvedValue(validGeminiOutput),
+    };
+
+    const geminiAdapter: ExplanationProviderAdapter = {
+      name: 'gemini',
+      model: 'gemini-3.6-flash',
+      generateExplanation: vi.fn().mockResolvedValue(validGeminiOutput),
+    };
+
+    const groqRes = await processExplainRequest({ requestId: 'groq_req', scenario: 'baseline_summary', facts: baselineFacts }, groqAdapter, { cache });
+    expect((groqRes.response as any).source).toBe('ai');
+    expect((groqRes.response as any).provider).toBe('groq');
+
+    const geminiRes = await processExplainRequest({ requestId: 'gemini_req', scenario: 'baseline_summary', facts: baselineFacts }, geminiAdapter, { cache });
+    expect((geminiRes.response as any).source).toBe('ai');
+    expect((geminiRes.response as any).provider).toBe('gemini');
+  });
+
+  it('switching provider from Gemini to Groq produces distinct cache keys and does NOT reuse Gemini cache', async () => {
+    const cache = new ExplanationServerCache();
+
+    const mockGroq = vi.fn().mockResolvedValue(validGeminiOutput);
+    const mockGemini = vi.fn().mockResolvedValue(validGeminiOutput);
+
+    const groqAdapter: ExplanationProviderAdapter = {
+      name: 'groq',
+      model: 'openai/gpt-oss-20b',
+      generateExplanation: mockGroq,
+    };
+
+    const geminiAdapter: ExplanationProviderAdapter = {
+      name: 'gemini',
+      model: 'gemini-3.6-flash',
+      generateExplanation: mockGemini,
+    };
+
+    // 1. Initial call with Gemini -> caches under Gemini key
+    const geminiRes = await processExplainRequest({ requestId: 'gem_1', scenario: 'baseline_summary', facts: baselineFacts }, geminiAdapter, { cache });
+    expect((geminiRes.response as any).provider).toBe('gemini');
+    expect((geminiRes.response as any).cacheHit).toBe(false);
+    expect(mockGemini).toHaveBeenCalledTimes(1);
+
+    // 2. Call with Groq for same scenario and facts -> MUST NOT reuse Gemini cache! Must trigger Groq call.
+    const groqRes = await processExplainRequest({ requestId: 'groq_1', scenario: 'baseline_summary', facts: baselineFacts }, groqAdapter, { cache });
+    expect((groqRes.response as any).provider).toBe('groq');
+    expect((groqRes.response as any).cacheHit).toBe(false); // Cache miss because provider is groq
+    expect(mockGroq).toHaveBeenCalledTimes(1);
+
+    // 3. Repeated call with Groq -> hits Groq cache
+    const groqRes2 = await processExplainRequest({ requestId: 'groq_2', scenario: 'baseline_summary', facts: baselineFacts }, groqAdapter, { cache });
+    expect((groqRes2.response as any).provider).toBe('groq');
+    expect((groqRes2.response as any).cacheHit).toBe(true);
+    expect(mockGroq).toHaveBeenCalledTimes(1); // Not called again
   });
 });

@@ -5,6 +5,7 @@ import type { ExplanationScenario } from '../../server/types.ts';
 export interface ClientExplanationResult {
   status: 'success' | 'fallback';
   source: 'ai' | 'mock' | 'fallback';
+  provider?: 'gemini' | 'groq' | 'mock' | 'fallback';
   diagnosticCode?: string;
   renderedText: string;
   requestId: string;
@@ -118,13 +119,23 @@ export async function fetchExplanation(options: {
       };
     }
 
-    // Truthful source attribution: 'ai' only if gateway verified an actual Gemini response
+    // Truthful source and provider attribution
     const sourceLabel: 'ai' | 'mock' | 'fallback' =
       data.source === 'ai' ? 'ai' : data.source === 'mock' ? 'mock' : 'fallback';
+
+    const providerLabel: 'gemini' | 'groq' | 'mock' | 'fallback' =
+      data.provider === 'groq'
+        ? 'groq'
+        : data.provider === 'gemini'
+        ? 'gemini'
+        : data.provider === 'mock'
+        ? 'mock'
+        : 'fallback';
 
     return {
       status: 'success',
       source: sourceLabel,
+      provider: providerLabel,
       renderedText: semanticResult.renderedText,
       requestId,
       cacheHit: data.cacheHit === true,

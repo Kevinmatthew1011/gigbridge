@@ -140,18 +140,20 @@ Spins up a local web server serving the built `dist/` directory.
 ### Feature 5: Constrained AI Explanation Gateway
 - **Architecture & Determinism Boundary:**
   - Calculations, cash-flow projections, and opportunity rankings remain 100% deterministic and rule-based.
-  - The AI provider (Google Gemini or Groq) is strictly constrained to selecting approved message IDs and citing verified fact IDs.
+  - The AI provider (Groq or Google Gemini) is strictly constrained to selecting approved message IDs and citing verified fact IDs.
   - All rendered explanations, numbers, and INR currency formatting are generated solely by application-owned plain-text templates (`src/utils/explanationTemplates.ts`).
 - **Deterministic Fact Extraction (`src/utils/factExtractor.ts`):**
   - Extracts canonical typed facts directly from financial engine results.
   - Strips user-entered free-text descriptions, bill names, and personal information before sending payloads to the server.
 - **Provider Adapters & Safe Diagnostics:**
-  - Primary Provider: Google Gemini (`gemini-3.6-flash`) with structured schema and minimal thinking configuration for fast inference.
-  - Optional Provider: Groq (`openai/gpt-oss-20b`) with JSON mode.
+  - Primary Live Provider: Groq (`openai/gpt-oss-20b`) using OpenAI-compatible JSON mode for ultra-low-latency message selection.
+  - Optional Live Provider: Google Gemini (`gemini-3.6-flash`) with structured schema and minimal thinking configuration.
   - Offline Mock Mode: `EXPLAIN_PROVIDER=mock` for deterministic development without external API calls or credentials.
-  - Privacy-preserving diagnostic codes in development mode (`GEMINI_AUTH_ERROR`, `GROQ_AUTH_ERROR`, `GEMINI_TIMEOUT_ERROR`, etc.) without exposing keys or payloads.
+  - In-Memory Caching & Coalescing: Bounded LRU cache (5-min TTL) and concurrent request deduplication keyed by canonical facts, scenario, provider, and model.
+  - Privacy-preserving diagnostic codes in development mode (`GROQ_AUTH_ERROR`, `GEMINI_AUTH_ERROR`, `GATEWAY_TIMEOUT_ERROR`, etc.) without exposing keys or payloads.
 - **Truthful User-Facing Badging:**
-  - `source: "ai"`: *"AI-assisted explanation"* (with subtext explaining that calculations remain rule-based).
+  - `source: "ai"` with Groq: *"AI-assisted explanation"* (Subtext: *"Groq organizes verified facts; calculations remain rule-based."*).
+  - `source: "ai"` with Gemini: *"AI-assisted explanation"* (Subtext: *"Gemini organizes verified facts; calculations remain rule-based."*).
   - `source: "mock"`: *"Demo explanation — no AI model connected"*.
   - `source: "fallback"`: *"Standard summary"*.
 

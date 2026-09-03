@@ -507,10 +507,14 @@ describe('App Component Integration & UI Redesign', () => {
             requestId: body.requestId,
             status: 'success',
             source: 'ai',
+            provider: 'gemini',
             messages: [
               {
                 messageId: 'baseline_essential_shortfall',
-                text: 'Your first essential cash shortfall of ₹400 occurs on Day 3 (Sat, 5 Sept) when expenses exceed available cash.',
+                referencedFactIds: ['FACT_BASELINE_ESSENTIAL_SHORTFALL'],
+              },
+              {
+                messageId: 'baseline_buffer_gap',
                 referencedFactIds: ['FACT_BASELINE_ESSENTIAL_SHORTFALL'],
               },
             ],
@@ -593,6 +597,68 @@ describe('App Component Integration & UI Redesign', () => {
       expect(
         screen.getByText(/\(GEMINI_TIMEOUT_ERROR\)/i)
       ).toBeInTheDocument();
+
+      fetchSpy.mockRestore();
+    });
+
+    it('renders Groq attribution for validated Groq responses', async () => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (_input: RequestInfo | URL, init?: RequestInit) => {
+        const body = JSON.parse(init?.body as string);
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            requestId: body.requestId,
+            status: 'success',
+            source: 'ai',
+            provider: 'groq',
+            messages: [
+              { messageId: 'baseline_essential_shortfall', referencedFactIds: ['FACT_BASELINE_ESSENTIAL_SHORTFALL'] },
+              { messageId: 'baseline_buffer_gap', referencedFactIds: ['FACT_BASELINE_ESSENTIAL_SHORTFALL'] },
+            ],
+            renderedText: 'Your first essential cash shortfall of ₹400 occurs on Day 3.',
+          }),
+        } as Response;
+      });
+
+      render(<App />);
+
+      const baseExplainBtn = screen.getAllByRole('button', { name: /Explain these results/i })[0];
+      fireEvent.click(baseExplainBtn);
+
+      expect(await screen.findByText(/AI-assisted explanation/i)).toBeInTheDocument();
+      expect(screen.getByText(/Groq organizes verified facts; calculations remain rule-based\./i)).toBeInTheDocument();
+
+      fetchSpy.mockRestore();
+    });
+
+    it('renders Gemini attribution for validated Gemini responses', async () => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (_input: RequestInfo | URL, init?: RequestInit) => {
+        const body = JSON.parse(init?.body as string);
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            requestId: body.requestId,
+            status: 'success',
+            source: 'ai',
+            provider: 'gemini',
+            messages: [
+              { messageId: 'baseline_essential_shortfall', referencedFactIds: ['FACT_BASELINE_ESSENTIAL_SHORTFALL'] },
+              { messageId: 'baseline_buffer_gap', referencedFactIds: ['FACT_BASELINE_ESSENTIAL_SHORTFALL'] },
+            ],
+            renderedText: 'Your first essential cash shortfall of ₹400 occurs on Day 3.',
+          }),
+        } as Response;
+      });
+
+      render(<App />);
+
+      const baseExplainBtn = screen.getAllByRole('button', { name: /Explain these results/i })[0];
+      fireEvent.click(baseExplainBtn);
+
+      expect(await screen.findByText(/AI-assisted explanation/i)).toBeInTheDocument();
+      expect(screen.getByText(/Gemini organizes verified facts; calculations remain rule-based\./i)).toBeInTheDocument();
 
       fetchSpy.mockRestore();
     });

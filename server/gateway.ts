@@ -123,6 +123,7 @@ export async function processExplainRequest(
             requestId: req.requestId,
             status: 'success',
             source: 'fallback',
+            provider: 'fallback',
             diagnosticCode: 'MOCK_SEMANTIC_REJECTION',
             renderedText: serverFallbackText,
             messages: [],
@@ -138,6 +139,7 @@ export async function processExplainRequest(
           requestId: req.requestId,
           status: 'success',
           source: 'mock',
+          provider: 'mock',
           renderedText: semanticResult.renderedText,
           messages: semanticResult.renderedMessages,
           referencedFactIds: semanticResult.referencedFactIds,
@@ -152,6 +154,7 @@ export async function processExplainRequest(
           requestId: req.requestId,
           status: 'success',
           source: 'fallback',
+          provider: 'fallback',
           diagnosticCode,
           renderedText: serverFallbackText,
           messages: [],
@@ -252,6 +255,7 @@ export async function processExplainRequest(
         requestId: req.requestId,
         status: 'success',
         source: 'fallback',
+        provider: 'fallback',
         diagnosticCode,
         renderedText: serverFallbackText,
         messages: [],
@@ -284,6 +288,7 @@ export async function processExplainRequest(
         requestId: req.requestId,
         status: 'success',
         source: 'fallback',
+        provider: 'fallback',
         diagnosticCode,
         renderedText: serverFallbackText,
         messages: [],
@@ -293,12 +298,16 @@ export async function processExplainRequest(
     };
   }
 
+  const providerLabel: 'gemini' | 'groq' | 'fallback' =
+    adapter.name === 'groq' ? 'groq' : adapter.name === 'gemini' ? 'gemini' : 'fallback';
+
   return {
     statusCode: 200,
     response: {
       requestId: req.requestId,
       status: 'success',
       source: 'ai',
+      provider: providerLabel,
       renderedText: semanticResult.renderedText,
       messages: semanticResult.renderedMessages,
       referencedFactIds: semanticResult.referencedFactIds,

@@ -4,6 +4,7 @@ export interface ExplanationBoxProps {
   scenarioLabel: string;
   status: 'idle' | 'loading' | 'success' | 'fallback';
   source: 'ai' | 'mock' | 'fallback' | null;
+  provider?: 'gemini' | 'groq' | 'mock' | 'fallback' | null;
   diagnosticCode?: string;
   cacheHit?: boolean;
   renderedText: string | null;
@@ -18,6 +19,7 @@ export const ExplanationBox: React.FC<ExplanationBoxProps> = ({
   scenarioLabel,
   status,
   source,
+  provider = null,
   diagnosticCode,
   cacheHit = false,
   renderedText,
@@ -123,7 +125,11 @@ export const ExplanationBox: React.FC<ExplanationBoxProps> = ({
                     </span>
                   )}
                   <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                    Gemini organizes verified facts; calculations remain rule-based.
+                    {provider === 'groq'
+                      ? 'Groq organizes verified facts; calculations remain rule-based.'
+                      : provider === 'gemini'
+                      ? 'Gemini organizes verified facts; calculations remain rule-based.'
+                      : 'AI model organizes verified facts; calculations remain rule-based.'}
                   </span>
                 </>
               ) : source === 'mock' ? (

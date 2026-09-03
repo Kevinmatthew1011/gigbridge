@@ -13,6 +13,7 @@ export interface ExplainApiResponseSuccess {
   requestId: string;
   status: 'success';
   source: 'ai' | 'mock' | 'fallback';
+  provider?: 'gemini' | 'groq' | 'mock' | 'fallback';
   diagnosticCode?: string;
   renderedText: string;
   messages: RenderedMessage[];

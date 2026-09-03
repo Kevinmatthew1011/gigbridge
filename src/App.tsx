@@ -23,6 +23,7 @@ import { OpportunitySimulationPreview } from './components/OpportunitySimulation
 interface ExplanationUIState {
   status: 'idle' | 'loading' | 'success' | 'fallback';
   source: 'ai' | 'mock' | 'fallback' | null;
+  provider?: 'gemini' | 'groq' | 'mock' | 'fallback' | null;
   diagnosticCode?: string;
   cacheHit?: boolean;
   renderedText: string | null;
@@ -31,6 +32,7 @@ interface ExplanationUIState {
 const INITIAL_EXPLANATION_STATE: ExplanationUIState = {
   status: 'idle',
   source: null,
+  provider: null,
   cacheHit: false,
   renderedText: null,
 };
@@ -227,6 +229,7 @@ export const App: React.FC = () => {
       setBaselineExplanation({
         status: result.status,
         source: result.source,
+        provider: result.provider || null,
         diagnosticCode: result.diagnosticCode,
         cacheHit: result.cacheHit === true,
         renderedText: result.renderedText,
@@ -238,6 +241,7 @@ export const App: React.FC = () => {
       setBaselineExplanation({
         status: 'fallback',
         source: 'fallback',
+        provider: 'fallback',
         diagnosticCode: 'GATEWAY_ERROR',
         cacheHit: false,
         renderedText: summary.explanation,
@@ -272,6 +276,7 @@ export const App: React.FC = () => {
     setPreviewExplanation({
       status: 'loading',
       source: null,
+      provider: null,
       cacheHit: false,
       renderedText: null,
     });
@@ -291,6 +296,7 @@ export const App: React.FC = () => {
       setPreviewExplanation({
         status: result.status,
         source: result.source,
+        provider: result.provider || null,
         diagnosticCode: result.diagnosticCode,
         cacheHit: result.cacheHit === true,
         renderedText: result.renderedText,
@@ -302,6 +308,7 @@ export const App: React.FC = () => {
       setPreviewExplanation({
         status: 'fallback',
         source: 'fallback',
+        provider: 'fallback',
         diagnosticCode: 'GATEWAY_ERROR',
         cacheHit: false,
         renderedText: simulationResult.explanation,
@@ -454,6 +461,7 @@ export const App: React.FC = () => {
               safetyBufferPaise={inputs.safetyBufferPaise}
               explanationStatus={baselineExplanation.status}
               explanationSource={baselineExplanation.source}
+              explanationProvider={baselineExplanation.provider}
               explanationDiagnosticCode={baselineExplanation.diagnosticCode}
               explanationCacheHit={baselineExplanation.cacheHit}
               explanationText={baselineExplanation.renderedText}
@@ -472,6 +480,7 @@ export const App: React.FC = () => {
                 onClosePreview={handleClosePreview}
                 explanationStatus={previewExplanation.status}
                 explanationSource={previewExplanation.source}
+                explanationProvider={previewExplanation.provider}
                 explanationDiagnosticCode={previewExplanation.diagnosticCode}
                 explanationCacheHit={previewExplanation.cacheHit}
                 explanationText={previewExplanation.renderedText}

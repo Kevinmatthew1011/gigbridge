@@ -11,6 +11,7 @@ interface OpportunitySimulationPreviewProps {
   onClosePreview: () => void;
   explanationStatus?: 'idle' | 'loading' | 'success' | 'fallback';
   explanationSource?: 'ai' | 'mock' | 'fallback' | null;
+  explanationProvider?: 'gemini' | 'groq' | 'mock' | 'fallback' | null;
   explanationDiagnosticCode?: string;
   explanationCacheHit?: boolean;
   explanationText?: string | null;
@@ -27,6 +28,7 @@ export const OpportunitySimulationPreview: React.FC<OpportunitySimulationPreview
   onClosePreview,
   explanationStatus = 'idle',
   explanationSource = null,
+  explanationProvider = null,
   explanationDiagnosticCode,
   explanationCacheHit = false,
   explanationText = null,
@@ -238,6 +240,7 @@ export const OpportunitySimulationPreview: React.FC<OpportunitySimulationPreview
             scenarioLabel="single-gig simulation"
             status={explanationStatus}
             source={explanationSource}
+            provider={explanationProvider}
             diagnosticCode={explanationDiagnosticCode}
             cacheHit={explanationCacheHit}
             renderedText={explanationText}

@@ -168,24 +168,30 @@ When an explanation payload is received:
 
 ---
 
-## 7. Gemini Provider Integration & Configuration (Phase 4)
+## 7. Live Providers Integration & Configuration
 
-### 7.1 Provider Adapter & Structured Outputs
+### 7.1 Primary Live Provider: Groq Adapter
+- **Server Adapter:** [`server/groqAdapter.ts`](file:///home/kiddo/projects/vit/server/groqAdapter.ts) (`GroqExplanationAdapter`).
+- **Endpoint:** `https://api.groq.com/openai/v1/chat/completions` (with `Authorization: Bearer ${apiKey}`).
+- **Model:** `openai/gpt-oss-20b` (low-latency supported model with JSON mode).
+- **Format:** `response_format: { type: "json_object" }`.
+
+### 7.2 Optional Live Provider: Gemini Adapter
 - **Server Adapter:** [`server/geminiAdapter.ts`](file:///home/kiddo/projects/vit/server/geminiAdapter.ts) (`GeminiExplanationAdapter`).
 - **Official API Endpoint:** `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent` (with `x-goog-api-key` header authentication).
 - **Structured Schema & Thinking Configuration:** Uses Gemini's native `generationConfig.responseSchema` with `responseMimeType: "application/json"`, and `thinkingConfig: { thinkingLevel: "MINIMAL" }` for fast inference.
-- **Zero Hallucination / Bounded Role:** The model receives only anonymized canonical facts and selects approved message IDs. Application templates supply all financial wording and values.
-- **Error & Failure Handling:** Missing keys, 401/403 auth errors, 429 quota errors, model timeouts, safety blockages, and JSON schema errors trigger deterministic server fallback with `source: "fallback"`.
+- **Model:** `gemini-3.6-flash` (configurable).
 
-### 7.2 Configuration & Secret Isolation
+### 7.3 Configuration & Secret Isolation
 - **Environment File:** `.env.server` (strictly ignored in `.gitignore`, never imported by Vite).
 - **Tracked Template:** `.env.server.example` provides default configuration fields with blank placeholders.
-- **Provider Switching:** `EXPLAIN_PROVIDER=mock` (default offline mock), `EXPLAIN_PROVIDER=gemini`, or `EXPLAIN_PROVIDER=groq`.
-- **Model Configuration:** `GEMINI_MODEL=gemini-3.6-flash` (configurable), `GROQ_MODEL=openai/gpt-oss-20b` (configurable).
+- **Provider Switching:** `EXPLAIN_PROVIDER=groq` (documented primary), `EXPLAIN_PROVIDER=gemini` (optional), or `EXPLAIN_PROVIDER=mock` (offline default).
+- **Model Configuration:** `GROQ_MODEL=openai/gpt-oss-20b`, `GEMINI_MODEL=gemini-3.6-flash`.
 - **Timeout Configuration:** `GEMINI_TIMEOUT_MS=30000` (gateway deadline 30s; client deadline 35s).
 
-### 7.3 Source Labels & Disclosures
-- **`source: "ai"`:** Displayed with badge `AI-assisted explanation` and disclosure: *"Gemini organizes verified facts; calculations remain rule-based."*
+### 7.4 Source Labels & Disclosures
+- **`source: "ai"`, `provider: "groq"`:** Displayed with badge `AI-assisted explanation` and disclosure: *"Groq organizes verified facts; calculations remain rule-based."*
+- **`source: "ai"`, `provider: "gemini"`:** Displayed with badge `AI-assisted explanation` and disclosure: *"Gemini organizes verified facts; calculations remain rule-based."*
 - **`source: "mock"`:** Displayed with badge `Demo explanation — no AI model connected`.
 - **`source: "fallback"`:** Displayed with badge `Standard summary`.
 
