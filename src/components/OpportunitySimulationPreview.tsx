@@ -4,6 +4,7 @@ import type { Paise } from '../types/finance.ts';
 import { formatINR } from '../utils/formatters.ts';
 import { formatDateDisplay } from '../utils/dates.ts';
 import { ExplanationBox } from './ExplanationBox.tsx';
+import { CashRunwayChart } from './CashRunwayChart.tsx';
 
 interface OpportunitySimulationPreviewProps {
   simulationResult: SimulationResult;
@@ -94,12 +95,13 @@ export const OpportunitySimulationPreview: React.FC<OpportunitySimulationPreview
           onClick={onClosePreview}
           className="btn btn-secondary btn-sm"
           title="Close simulation preview and return to baseline"
+          style={{ minHeight: '38px' }}
         >
           ✕ Close Preview
         </button>
       </div>
 
-      {/* Opportunity Overview Bar */}
+      {/* Opportunity Financial Overview Bar */}
       <div
         style={{
           display: 'grid',
@@ -123,11 +125,19 @@ export const OpportunitySimulationPreview: React.FC<OpportunitySimulationPreview
         </div>
         <div>
           <div className="metric-label">Incremental Costs</div>
-          <div style={{ fontSize: '1.1rem', fontWeight: 700, color: totalCostsPaise > 0 ? 'var(--color-danger)' : 'inherit' }}>
+          <div
+            style={{
+              fontSize: '1.1rem',
+              fontWeight: 700,
+              color: totalCostsPaise > 0 ? 'var(--color-danger)' : 'inherit',
+            }}
+          >
             -{formatINR(totalCostsPaise)}
           </div>
           <div className="form-hint">
-            {opportunity.incrementalCosts.length > 0 ? opportunity.incrementalCosts.map((c) => c.description).join(', ') : 'No extra cost'}
+            {opportunity.incrementalCosts.length > 0
+              ? opportunity.incrementalCosts.map((c) => c.description).join(', ')
+              : 'No extra cost'}
           </div>
         </div>
         <div>
@@ -135,10 +145,20 @@ export const OpportunitySimulationPreview: React.FC<OpportunitySimulationPreview
           <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--color-success)' }}>
             {formatINR(netEarningsPaise)}
           </div>
-          <div className="form-hint">
-            Work: {formatDateDisplay(opportunity.workDate)}
-          </div>
+          <div className="form-hint">Work: {formatDateDisplay(opportunity.workDate)}</div>
         </div>
+      </div>
+
+      {/* Visual 14-Day Baseline vs. Simulated Cash Runway Comparison */}
+      <div style={{ marginBottom: '1rem' }}>
+        <CashRunwayChart
+          baselineDays={baselineSummary.days}
+          simulatedDays={simulatedSummary.days}
+          safetyBufferPaise={safetyBufferPaise}
+          title="14-Day Runway: Baseline (Teal) vs. With Opportunity (Indigo)"
+          earliestShortfallDayIndex={baselineSummary.earliestEssentialShortfall?.dayIndex}
+          simulatedShortfallDayIndex={simulatedEarliestEssentialShortfall?.dayIndex}
+        />
       </div>
 
       {/* Impact on Shortfall & Safety Buffer Grid */}
@@ -165,7 +185,8 @@ export const OpportunitySimulationPreview: React.FC<OpportunitySimulationPreview
               )}
             </div>
             <div className="metric-sub">
-              Baseline deficit was {formatINR(originalShortfallComparison.baselineDeficitPaise)}. Projected Day {originalShortfallComparison.dayIndex} cash becomes{' '}
+              Baseline deficit was {formatINR(originalShortfallComparison.baselineDeficitPaise)}. Projected Day{' '}
+              {originalShortfallComparison.dayIndex} cash becomes{' '}
               <strong>{formatINR(originalShortfallComparison.simulatedBalanceAtEventPaise)}</strong>.
             </div>
           </div>
@@ -184,13 +205,16 @@ export const OpportunitySimulationPreview: React.FC<OpportunitySimulationPreview
                 Day {simulatedFirstBelowSafetyBuffer.dayIndex} ({simulatedFirstBelowSafetyBuffer.formattedDate})
               </div>
               <div className="metric-sub">
-                {formatINR(simulatedFirstBelowSafetyBuffer.bufferDeficitPaise)} gap below {formatINR(safetyBufferPaise)} target cushion.
+                {formatINR(simulatedFirstBelowSafetyBuffer.bufferDeficitPaise)} gap below{' '}
+                {formatINR(safetyBufferPaise)} target cushion.
               </div>
             </>
           ) : (
             <>
               <div className="metric-value amount-positive">Protected</div>
-              <div className="metric-sub">Maintains ≥ {formatINR(safetyBufferPaise)} safety buffer all 14 days</div>
+              <div className="metric-sub">
+                Maintains ≥ {formatINR(safetyBufferPaise)} safety buffer all 14 days
+              </div>
             </>
           )}
         </div>
@@ -208,7 +232,8 @@ export const OpportunitySimulationPreview: React.FC<OpportunitySimulationPreview
                 {formatINR(simulatedEarliestEssentialShortfall.deficitPaise)} Deficit
               </div>
               <div className="metric-sub">
-                Day {simulatedEarliestEssentialShortfall.dayIndex} ({simulatedEarliestEssentialShortfall.formattedDate})
+                Day {simulatedEarliestEssentialShortfall.dayIndex} (
+                {simulatedEarliestEssentialShortfall.formattedDate})
               </div>
             </>
           ) : (
@@ -262,7 +287,9 @@ export const OpportunitySimulationPreview: React.FC<OpportunitySimulationPreview
           style={{ marginBottom: isComparisonExpanded ? '0.75rem' : 0 }}
           aria-expanded={isComparisonExpanded}
         >
-          {isComparisonExpanded ? 'Hide 14-Day Comparison Table ▲' : 'View Full 14-Day Baseline vs. Simulation Table ▼'}
+          {isComparisonExpanded
+            ? 'Hide 14-Day Comparison Table ▲'
+            : 'View Full 14-Day Baseline vs. Simulation Table ▼'}
         </button>
 
         {isComparisonExpanded && (
@@ -334,7 +361,11 @@ export const OpportunitySimulationPreview: React.FC<OpportunitySimulationPreview
                         </span>
                       </td>
                       <td className="text-right">
-                        <strong className={simDay.closingBalancePaise < 0 ? 'amount-negative' : 'amount-positive'}>
+                        <strong
+                          className={
+                            simDay.closingBalancePaise < 0 ? 'amount-negative' : 'amount-positive'
+                          }
+                        >
                           {formatINR(simDay.closingBalancePaise)}
                         </strong>
                       </td>
@@ -363,22 +394,25 @@ export const OpportunitySimulationPreview: React.FC<OpportunitySimulationPreview
       {/* Footer Controls */}
       <div
         style={{
-          marginTop: '1rem',
+          marginTop: '1.25rem',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           flexWrap: 'wrap',
-          gap: '0.5rem',
+          gap: '0.75rem',
+          borderTop: '1px solid var(--color-border)',
+          paddingTop: '0.85rem',
         }}
       >
         <button
           type="button"
           onClick={onClosePreview}
           className="btn btn-secondary"
+          style={{ minHeight: '44px', padding: '0.5rem 1.25rem' }}
         >
           Continue Without Extra Work
         </button>
-        <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+        <div style={{ fontSize: '0.825rem', color: 'var(--color-text-muted)' }}>
           Closing preview leaves your baseline cash-flow timeline unchanged.
         </div>
       </div>

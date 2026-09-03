@@ -2,6 +2,7 @@ import React from 'react';
 import type { CashFlowSummary, Paise } from '../types/finance.ts';
 import { formatINR } from '../utils/formatters.ts';
 import { ExplanationBox } from './ExplanationBox.tsx';
+import { CashRunwayChart } from './CashRunwayChart.tsx';
 
 interface SummaryAlertsProps {
   summary: CashFlowSummary;
@@ -76,7 +77,7 @@ export const SummaryAlerts: React.FC<SummaryAlertsProps> = ({
             <div className="metric-value amount-negative" style={{ fontSize: '1.65rem' }}>
               Your first essentials gap is {formatINR(earliestEssentialShortfall.deficitPaise)} on Day {earliestEssentialShortfall.dayIndex} ({earliestEssentialShortfall.formattedDate})
             </div>
-            <div className="metric-sub" style={{ marginTop: '0.4rem', fontSize: '0.9rem' }}>
+            <div className="metric-sub" style={{ marginTop: '0.5rem', fontSize: '0.9rem' }}>
               Projected cash falls below ₹0 at this point. Reaching your {formatINR(safetyBufferPaise)} safety buffer cushion on the same day requires{' '}
               <strong>{formatINR(earliestEssentialShortfall.bufferInclusiveGapPaise)}</strong> total (includes the {formatINR(earliestEssentialShortfall.deficitPaise)} essential deficit; not an extra charge).
             </div>
@@ -86,7 +87,7 @@ export const SummaryAlerts: React.FC<SummaryAlertsProps> = ({
             <div className="metric-value" style={{ color: 'var(--color-warning)', fontSize: '1.45rem' }}>
               First below safety buffer on Day {earliestBufferBreach.dayIndex} ({earliestBufferBreach.formattedDate})
             </div>
-            <div className="metric-sub" style={{ marginTop: '0.4rem', fontSize: '0.9rem' }}>
+            <div className="metric-sub" style={{ marginTop: '0.5rem', fontSize: '0.9rem' }}>
               All essential expenses are covered, but projected cash dips to {formatINR(earliestBufferBreach.minBalancePaise)} ({formatINR(earliestBufferBreach.bufferDeficitPaise)} below your {formatINR(safetyBufferPaise)} target cushion).
             </div>
           </div>
@@ -95,11 +96,21 @@ export const SummaryAlerts: React.FC<SummaryAlertsProps> = ({
             <div className="metric-value amount-positive" style={{ fontSize: '1.45rem' }}>
               All essential expenses covered across 14 days
             </div>
-            <div className="metric-sub" style={{ marginTop: '0.4rem', fontSize: '0.9rem' }}>
+            <div className="metric-sub" style={{ marginTop: '0.5rem', fontSize: '0.9rem' }}>
               Projected cash maintains at least your {formatINR(safetyBufferPaise)} safety buffer cushion through the forecast horizon.
             </div>
           </div>
         )}
+      </div>
+
+      {/* Visual 14-Day Cash Runway Chart */}
+      <div style={{ marginBottom: '1rem' }}>
+        <CashRunwayChart
+          baselineDays={days}
+          safetyBufferPaise={safetyBufferPaise}
+          title="Baseline 14-Day Cash Flow Runway"
+          earliestShortfallDayIndex={earliestEssentialShortfall?.dayIndex}
+        />
       </div>
 
       {/* Secondary Context Metric Cards */}

@@ -62,10 +62,28 @@ body {
   outline-offset: 2px;
 }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
 .app-container {
   max-width: 1160px;
   margin: 0 auto;
   padding: 0 1.25rem 4rem 1.25rem;
+}
+
+@media (max-width: 480px) {
+  .app-container {
+    padding: 0 0.85rem 3rem 0.85rem;
+  }
 }
 
 /* Banner */
@@ -159,6 +177,7 @@ body {
   cursor: pointer;
   text-decoration: none;
   transition: all 0.15s ease;
+  min-height: 44px;
 }
 
 .quick-nav-btn:hover {
@@ -188,6 +207,12 @@ body {
   padding: 1.35rem;
   box-shadow: var(--shadow-sm);
   margin-bottom: 1.25rem;
+}
+
+@media (max-width: 480px) {
+  .card {
+    padding: 1rem 0.85rem;
+  }
 }
 
 .card-header {
@@ -220,6 +245,7 @@ body {
   transition: all 0.15s ease-in-out;
   font-family: inherit;
   line-height: 1.4;
+  min-height: 44px;
 }
 
 .btn-primary {
@@ -245,6 +271,7 @@ body {
 .btn-sm {
   padding: 0.35rem 0.75rem;
   font-size: 0.825rem;
+  min-height: 38px;
 }
 
 .btn-danger-outline {
@@ -286,6 +313,7 @@ body {
   color: var(--color-text);
   font-family: inherit;
   transition: border-color 0.15s ease-in-out;
+  min-height: 42px;
 }
 
 .form-input:focus {
@@ -318,6 +346,7 @@ body {
   align-items: center;
   gap: 0.45rem;
   padding: 0.25rem 0;
+  min-height: 40px;
 }
 
 .accordion-toggle:hover {
@@ -350,7 +379,7 @@ body {
 /* Metric Cards */
 .summary-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 1rem;
   margin-bottom: 1.25rem;
 }
@@ -390,6 +419,7 @@ body {
   font-weight: 800;
   margin: 0.35rem 0 0.25rem 0;
   letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
 }
 
 .metric-sub {
@@ -436,6 +466,7 @@ body {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   background-color: var(--color-surface);
+  -webkit-overflow-scrolling: touch;
 }
 
 .timeline-table {
@@ -496,4 +527,114 @@ body {
 
 .text-center {
   text-align: center;
+}
+
+/* 14-Day Cash Runway Chart */
+.cash-runway-chart-container {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 0.85rem 1rem;
+  margin: 0.5rem 0;
+}
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.65rem;
+}
+
+.chart-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.775rem;
+  color: var(--color-text-muted);
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.legend-marker {
+  font-weight: 800;
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
+.marker-baseline {
+  color: #0f766e;
+}
+
+.marker-simulated {
+  color: #4338ca;
+}
+
+.marker-buffer {
+  color: #d97706;
+}
+
+.marker-zero {
+  color: #dc2626;
+}
+
+.chart-svg-wrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.cash-runway-svg {
+  width: 100%;
+  height: auto;
+  min-width: 320px;
+  display: block;
+}
+
+.chart-axis-label {
+  font-size: 10px;
+  fill: #78716c;
+  font-family: inherit;
+}
+
+.label-shortfall-day {
+  fill: #b91c1c;
+  font-weight: bold;
+}
+
+.chart-axis-label-y {
+  font-size: 9.5px;
+  fill: #78716c;
+  font-family: inherit;
+}
+
+.chart-axis-label-y.text-zero {
+  fill: #dc2626;
+  font-weight: bold;
+}
+
+.chart-axis-label-y.text-buffer {
+  fill: #d97706;
+  font-weight: bold;
+}
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

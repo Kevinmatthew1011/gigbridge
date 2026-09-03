@@ -50,7 +50,7 @@ describe('App Component Integration & UI Redesign', () => {
 
   it('supports progressive timeline detail expansion with concise overview', () => {
     render(<App />);
-    expect(screen.getByText(/14-Day Cash Flow Runway/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '14-Day Cash Flow Runway' })).toBeInTheDocument();
     expect(screen.getByText(/14 Days Forecasted/i)).toBeInTheDocument();
 
     const toggleBtn = screen.getByRole('button', { name: /View Full 14-Day Table/i });
@@ -68,7 +68,7 @@ describe('App Component Integration & UI Redesign', () => {
   it('renders ranked opportunities with rank badges and expandable ordering explanation', () => {
     render(<App />);
     expect(screen.getByText(/Options that could reduce your first shortfall/i)).toBeInTheDocument();
-    expect(screen.getByText(/Rank 1/i)).toBeInTheDocument();
+    expect(screen.getByText(/Rank #1/i)).toBeInTheDocument();
     expect(screen.getByText(/Sample Packing Shift \(Fictional\)/i)).toBeInTheDocument();
 
     const howOrderedBtn = screen.getByRole('button', { name: /How options are ordered/i });
@@ -661,6 +661,63 @@ describe('App Component Integration & UI Redesign', () => {
       expect(screen.getByText(/Gemini organizes verified facts; calculations remain rule-based\./i)).toBeInTheDocument();
 
       fetchSpy.mockRestore();
+    });
+  });
+
+  describe('CashRunwayChart & Opportunity Ranking Enhancements', () => {
+    it('renders accessible baseline 14-day cash runway chart and summary', () => {
+      render(<App />);
+
+      // Chart heading and accessible image role
+      expect(screen.getByRole('img', { name: /Baseline 14-Day Cash Flow Runway/i })).toBeInTheDocument();
+      expect(screen.getByText(/Baseline 14-Day Cash Flow Runway/i)).toBeInTheDocument();
+
+      // Screen reader accessible data table
+      expect(screen.getByText(/Daily Intraday Lowest Balances/i)).toBeInTheDocument();
+      expect(screen.getByText(/14-day cash flow forecast chart from Day 1 to Day 14/i)).toBeInTheDocument();
+    });
+
+    it('renders Rank 1 "Why this ranks first" section with exact derived values', () => {
+      render(<App />);
+
+      // Check Rank 1 highlight
+      expect(screen.getByText(/Top-Ranked Candidate for Earliest Gap/i)).toBeInTheDocument();
+      expect(screen.getByText(/Why this ranks first/i)).toBeInTheDocument();
+
+      // Check derived values in "Why this ranks first"
+      expect(screen.getByText(/Reduces the Day 3 deficit by/i)).toBeInTheDocument();
+      expect(screen.getByText(/projected balance becomes/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/₹81\.25\/work-hour/i).length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText(/60 minutes total/i).length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText(/30m outbound \+ 30m return/i).length).toBeGreaterThanOrEqual(1);
+
+      // Check single qualifying candidate count text
+      expect(screen.getByText(/1 qualifying candidate found that can reduce the Day 3 essential shortfall\./i)).toBeInTheDocument();
+    });
+
+    it('renders dual-runway chart and prominent Day 3 and Day 5 callouts in simulation preview', () => {
+      render(<App />);
+
+      const previewBtn = screen.getAllByRole('button', { name: /Preview impact/i })[0];
+      fireEvent.click(previewBtn);
+
+      // Dual-runway comparison chart
+      expect(
+        screen.getByRole('img', { name: /14-Day Runway: Baseline \(Teal\) vs\. With Opportunity \(Indigo\)/i })
+      ).toBeInTheDocument();
+
+      // Day 3 original shortfall resolved callout
+      expect(screen.getByText(/Day 3 Original Shortfall/i)).toBeInTheDocument();
+      expect(screen.getByText(/Covered \(₹0 Deficit\)/i)).toBeInTheDocument();
+      expect(screen.getByText(/Projected Day 3 cash becomes/i)).toBeInTheDocument();
+
+      // Day 5 remaining shortfall callout
+      expect(screen.getByText(/Remaining Shortfall \(Simulated\)/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/₹150 Deficit/i).length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText(/Day 5/i).length).toBeGreaterThanOrEqual(1);
+
+      // Continue Without Extra Work button
+      expect(screen.getByRole('button', { name: /Continue Without Extra Work/i })).toBeInTheDocument();
     });
   });
 });
