@@ -2,6 +2,7 @@ import http from 'node:http';
 import type { ExplanationProviderAdapter, ServerOptions } from './types.ts';
 import { MockExplanationAdapter } from './mockAdapter.ts';
 import { processExplainRequest } from './gateway.ts';
+import { ExplanationServerCache } from './cache.ts';
 
 export const DEFAULT_PORT = 3001;
 export const DEFAULT_HOST = '127.0.0.1';
@@ -17,6 +18,7 @@ export function createExplanationServer(
 ): http.Server {
   const maxBodySize = options.maxBodySizeBytes ?? DEFAULT_MAX_BODY_SIZE_BYTES;
   const adapterTimeoutMs = options.adapterTimeoutMs ?? 2000;
+  const serverCache = new ExplanationServerCache();
 
   const server = http.createServer(async (req, res) => {
     // Set security and content headers
@@ -83,6 +85,7 @@ export function createExplanationServer(
         try {
           const { statusCode, response } = await processExplainRequest(parsedBody, adapter, {
             adapterTimeoutMs,
+            cache: serverCache,
           });
           res.statusCode = statusCode;
           res.end(JSON.stringify(response));

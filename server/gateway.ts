@@ -2,10 +2,15 @@ import type { ExplainApiRequest, ExplainApiResponse, ExplanationProviderAdapter 
 import { validateAndRenderExplanation } from '../src/utils/explanationValidator.ts';
 import { validateExplainRequest } from './inputValidator.ts';
 import { generateServerDeterministicFallback } from './fallbackGenerator.ts';
+import { ExplanationServerCache, computeCacheKey } from './cache.ts';
+import type { ExplanationPayload } from '../src/types/explanation.ts';
 
 export interface GatewayOptions {
   adapterTimeoutMs?: number;
+  cache?: ExplanationServerCache;
 }
+
+const defaultServerCache = new ExplanationServerCache();
 
 /**
  * Extracts a safe, privacy-preserving diagnostic code from provider errors.
@@ -51,6 +56,11 @@ function extractSafeDiagnosticCode(err: unknown, adapterName: string): string {
     return 'GATEWAY_TIMEOUT_ERROR';
   }
 
+  // Semantic rejections with safe subcodes
+  if (msg.startsWith('GEMINI_SEMANTIC_REJECTION')) return msg;
+  if (msg.startsWith('GROQ_SEMANTIC_REJECTION')) return msg;
+  if (msg.startsWith('SEMANTIC_REJECTION')) return msg;
+
   if (adapterName === 'gemini') return 'GEMINI_GENERIC_ERROR';
   if (adapterName === 'groq') return 'GROQ_GENERIC_ERROR';
   return 'PROVIDER_ERROR';
@@ -58,7 +68,8 @@ function extractSafeDiagnosticCode(err: unknown, adapterName: string): string {
 
 /**
  * Handles incoming explain requests by coordinating input validation,
- * adapter invocation, semantic contract verification, and safe server-side fallback with diagnostics.
+ * in-memory caching, in-flight request coalescing, adapter invocation,
+ * semantic contract verification, and safe server-side fallback with diagnostics.
  */
 export async function processExplainRequest(
   rawBody: unknown,
@@ -66,6 +77,7 @@ export async function processExplainRequest(
   options: GatewayOptions = {}
 ): Promise<{ statusCode: number; response: ExplainApiResponse }> {
   const timeoutMs = options.adapterTimeoutMs ?? (adapter.name === 'gemini' || adapter.name === 'groq' ? 30000 : 2000);
+  const cache = options.cache ?? defaultServerCache;
 
   // 1. Untrusted input structure, fact type, completeness, and relational validation
   const validation = validateExplainRequest(rawBody);
@@ -85,35 +97,154 @@ export async function processExplainRequest(
   // 2. Generate deterministic fallback text purely from validated facts and server templates
   const serverFallbackText = generateServerDeterministicFallback(req.scenario, req.facts);
 
-  // 3. Invoke provider adapter with bounded timeout and cancellation signal
-  let adapterOutput: unknown;
-  const abortController = new AbortController();
+  const isAiProvider = adapter.name === 'gemini' || adapter.name === 'groq';
 
-  try {
-    let timeoutHandle: NodeJS.Timeout | null = null;
-    const timeoutPromise = new Promise((_, reject) => {
-      timeoutHandle = setTimeout(() => {
-        abortController.abort();
-        reject(new Error(`Adapter timed out after ${timeoutMs}ms`));
-      }, timeoutMs);
-    });
-
-    adapterOutput = await Promise.race([
-      adapter.generateExplanation({
+  // If not an AI provider (e.g. mock), do not use AI cache
+  if (!isAiProvider) {
+    try {
+      const adapterOutput = await adapter.generateExplanation({
         requestId: req.requestId,
         scenario: req.scenario,
         facts: req.facts,
         timeoutMs,
-        signal: abortController.signal,
-      }),
-      timeoutPromise,
-    ]);
+      });
 
-    if (timeoutHandle) {
-      clearTimeout(timeoutHandle);
+      const semanticResult = validateAndRenderExplanation(adapterOutput, req.facts, {
+        fallbackText: serverFallbackText,
+        requireDisclosures: req.scenario === 'single_opportunity_preview',
+        requireRemainingGapStatement: req.scenario === 'single_opportunity_preview',
+        requireBaselineShortfallStatement: req.scenario === 'baseline_summary',
+      });
+
+      if (!semanticResult.isValid) {
+        return {
+          statusCode: 200,
+          response: {
+            requestId: req.requestId,
+            status: 'success',
+            source: 'fallback',
+            diagnosticCode: 'MOCK_SEMANTIC_REJECTION',
+            renderedText: serverFallbackText,
+            messages: [],
+            referencedFactIds: [],
+            cacheHit: false,
+          },
+        };
+      }
+
+      return {
+        statusCode: 200,
+        response: {
+          requestId: req.requestId,
+          status: 'success',
+          source: 'mock',
+          renderedText: semanticResult.renderedText,
+          messages: semanticResult.renderedMessages,
+          referencedFactIds: semanticResult.referencedFactIds,
+          cacheHit: false,
+        },
+      };
+    } catch (err: unknown) {
+      const diagnosticCode = extractSafeDiagnosticCode(err, adapter.name);
+      return {
+        statusCode: 200,
+        response: {
+          requestId: req.requestId,
+          status: 'success',
+          source: 'fallback',
+          diagnosticCode,
+          renderedText: serverFallbackText,
+          messages: [],
+          referencedFactIds: [],
+          cacheHit: false,
+        },
+      };
     }
+  }
+
+  // 3. Compute deterministic cache key for AI provider
+  const cacheKey = computeCacheKey({
+    scenario: req.scenario,
+    facts: req.facts,
+    provider: adapter.name,
+    model: adapter.model,
+  });
+
+  // 4. Execute coalesced provider call with in-memory caching and subscriber-aware cancellation
+  let adapterOutput: ExplanationPayload;
+  let isCacheHit = false;
+
+  try {
+    const result = await cache.executeCoalesced({
+      key: cacheKey,
+      subscriberId: req.requestId,
+      bypassCache: req.bypassCache === true,
+      runner: async (signal) => {
+        const timeoutAbortController = new AbortController();
+        if (signal) {
+          if (signal.aborted) {
+            timeoutAbortController.abort();
+          } else {
+            signal.addEventListener('abort', () => timeoutAbortController.abort(), { once: true });
+          }
+        }
+
+        let timeoutHandle: NodeJS.Timeout | null = null;
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          timeoutHandle = setTimeout(() => {
+            timeoutAbortController.abort();
+            reject(new Error(`Adapter timed out after ${timeoutMs}ms`));
+          }, timeoutMs);
+        });
+
+        try {
+          const payload = await Promise.race([
+            adapter.generateExplanation({
+              requestId: req.requestId,
+              scenario: req.scenario,
+              facts: req.facts,
+              timeoutMs,
+              signal: timeoutAbortController.signal,
+            }),
+            timeoutPromise,
+          ]);
+
+          // Pre-validate semantic correctness before considering the response valid for caching
+          const validationCheck = validateAndRenderExplanation(payload, req.facts, {
+            fallbackText: serverFallbackText,
+            requireDisclosures: req.scenario === 'single_opportunity_preview',
+            requireRemainingGapStatement: req.scenario === 'single_opportunity_preview',
+            requireBaselineShortfallStatement: req.scenario === 'baseline_summary',
+          });
+
+          if (!validationCheck.isValid) {
+            const subcode = validationCheck.semanticRejectionReason
+              ? `:${validationCheck.semanticRejectionReason}`
+              : '';
+            const prefix =
+              adapter.name === 'gemini'
+                ? 'GEMINI_SEMANTIC_REJECTION'
+                : adapter.name === 'groq'
+                ? 'GROQ_SEMANTIC_REJECTION'
+                : 'SEMANTIC_REJECTION';
+            throw new Error(`${prefix}${subcode}`);
+          }
+
+          // Cache only validated AI response
+          cache.set(cacheKey, payload);
+          return payload;
+        } finally {
+          if (timeoutHandle) {
+            clearTimeout(timeoutHandle);
+          }
+        }
+      },
+    });
+
+    adapterOutput = result.payload;
+    isCacheHit = result.cacheHit;
   } catch (err: unknown) {
-    // Adapter failed, rejected, or timed out -> serve server-constructed deterministic fallback with safe diagnostic code
+    // Failure, timeout, or semantic rejection -> serve deterministic fallback; do NOT cache failure
     const diagnosticCode = extractSafeDiagnosticCode(err, adapter.name);
     return {
       statusCode: 200,
@@ -125,11 +256,12 @@ export async function processExplainRequest(
         renderedText: serverFallbackText,
         messages: [],
         referencedFactIds: [],
+        cacheHit: false,
       },
     };
   }
 
-  // 4. Apply Phase 1 semantic verification to adapter output
+  // 5. Render verified messages using application templates
   const semanticResult = validateAndRenderExplanation(adapterOutput, req.facts, {
     fallbackText: serverFallbackText,
     requireDisclosures: req.scenario === 'single_opportunity_preview',
@@ -138,7 +270,6 @@ export async function processExplainRequest(
   });
 
   if (!semanticResult.isValid) {
-    // Semantic validation rejected adapter output -> return server-constructed deterministic fallback
     const subcode = semanticResult.semanticRejectionReason ? `:${semanticResult.semanticRejectionReason}` : '';
     const prefix =
       adapter.name === 'gemini'
@@ -157,23 +288,21 @@ export async function processExplainRequest(
         renderedText: serverFallbackText,
         messages: [],
         referencedFactIds: [],
+        cacheHit: false,
       },
     };
   }
-
-  // 5. Return successful rendered explanation with truthful source label
-  const sourceLabel: 'ai' | 'mock' | 'fallback' =
-    adapter.name === 'gemini' || adapter.name === 'groq' ? 'ai' : adapter.name === 'mock' ? 'mock' : 'fallback';
 
   return {
     statusCode: 200,
     response: {
       requestId: req.requestId,
       status: 'success',
-      source: sourceLabel,
+      source: 'ai',
       renderedText: semanticResult.renderedText,
       messages: semanticResult.renderedMessages,
       referencedFactIds: semanticResult.referencedFactIds,
+      cacheHit: isCacheHit,
     },
   };
 }

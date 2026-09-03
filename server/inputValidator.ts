@@ -18,6 +18,7 @@ const ALLOWED_TOP_LEVEL_KEYS: ReadonlySet<string> = new Set([
   'requestId',
   'scenario',
   'facts',
+  'bypassCache',
 ]);
 
 const REQUIRED_BASELINE_FACT_IDS: readonly FactId[] = [
@@ -270,6 +271,15 @@ export function validateExplainRequest(body: unknown): ValidationResult<ExplainA
     }
   }
 
+  let bypassCache = false;
+  if (raw.bypassCache !== undefined) {
+    if (typeof raw.bypassCache !== 'boolean') {
+      errors.push('bypassCache must be a boolean when present.');
+    } else {
+      bypassCache = raw.bypassCache;
+    }
+  }
+
   if (errors.length > 0) {
     return { isValid: false, errors };
   }
@@ -280,6 +290,7 @@ export function validateExplainRequest(body: unknown): ValidationResult<ExplainA
       requestId: (raw.requestId as string).trim(),
       scenario: scenario!,
       facts: typedFacts,
+      bypassCache,
     },
   };
 }

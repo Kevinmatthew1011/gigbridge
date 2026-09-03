@@ -101,8 +101,8 @@ function buildScenarioSchema(scenario: string) {
  */
 export class GeminiExplanationAdapter implements ExplanationProviderAdapter {
   public readonly name = 'gemini';
+  public readonly model: string;
   private readonly apiKey: string | null;
-  private readonly model: string;
   private readonly thinkingLevel: 'minimal' | 'low' | 'medium' | 'high';
   private readonly fetchFn: typeof fetch;
 

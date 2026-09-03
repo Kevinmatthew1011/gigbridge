@@ -9,9 +9,12 @@ interface SummaryAlertsProps {
   explanationStatus?: 'idle' | 'loading' | 'success' | 'fallback';
   explanationSource?: 'ai' | 'mock' | 'fallback' | null;
   explanationDiagnosticCode?: string;
+  explanationCacheHit?: boolean;
   explanationText?: string | null;
   onRequestExplanation?: () => void;
+  onRegenerateExplanation?: () => void;
   isExplanationDisabled?: boolean;
+  isExplanationCooldownActive?: boolean;
   explanationDisabledReason?: string;
 }
 
@@ -21,9 +24,12 @@ export const SummaryAlerts: React.FC<SummaryAlertsProps> = ({
   explanationStatus = 'idle',
   explanationSource = null,
   explanationDiagnosticCode,
+  explanationCacheHit = false,
   explanationText = null,
   onRequestExplanation,
+  onRegenerateExplanation,
   isExplanationDisabled = false,
+  isExplanationCooldownActive = false,
   explanationDisabledReason,
 }) => {
   const {
@@ -169,9 +175,12 @@ export const SummaryAlerts: React.FC<SummaryAlertsProps> = ({
           status={explanationStatus}
           source={explanationSource}
           diagnosticCode={explanationDiagnosticCode}
+          cacheHit={explanationCacheHit}
           renderedText={explanationText}
           onRequestExplanation={onRequestExplanation}
+          onRegenerateExplanation={onRegenerateExplanation}
           isDisabled={isExplanationDisabled}
+          isCooldownActive={isExplanationCooldownActive}
           disabledReason={explanationDisabledReason}
         />
       )}

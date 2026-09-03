@@ -8,6 +8,7 @@ export interface ClientExplanationResult {
   diagnosticCode?: string;
   renderedText: string;
   requestId: string;
+  cacheHit?: boolean;
   error?: string;
 }
 
@@ -20,10 +21,11 @@ export async function fetchExplanation(options: {
   facts: FactMap;
   fallbackText: string;
   requestId: string;
+  bypassCache?: boolean;
   signal?: AbortSignal;
   timeoutMs?: number;
 }): Promise<ClientExplanationResult> {
-  const { scenario, facts, fallbackText, requestId, signal, timeoutMs = 35000 } = options;
+  const { scenario, facts, fallbackText, requestId, bypassCache = false, signal, timeoutMs = 35000 } = options;
 
   // Create combined timeout controller to prevent hanging client requests
   const timeoutController = new AbortController();
@@ -45,6 +47,7 @@ export async function fetchExplanation(options: {
         requestId,
         scenario,
         facts,
+        ...(bypassCache ? { bypassCache: true } : {}),
       }),
       signal: combinedSignal,
     });
@@ -58,6 +61,7 @@ export async function fetchExplanation(options: {
         diagnosticCode: `HTTP_${res.status}`,
         renderedText: fallbackText,
         requestId,
+        cacheHit: false,
         error: `Gateway returned status ${res.status}`,
       };
     }
@@ -72,6 +76,7 @@ export async function fetchExplanation(options: {
         diagnosticCode: 'STALE_REQUEST_DISCARDED',
         renderedText: fallbackText,
         requestId,
+        cacheHit: false,
         error: 'Stale response discarded',
       };
     }
@@ -84,6 +89,7 @@ export async function fetchExplanation(options: {
         diagnosticCode: data.diagnosticCode,
         renderedText: fallbackText,
         requestId,
+        cacheHit: false,
         error: data.diagnosticCode,
       };
     }
@@ -107,6 +113,7 @@ export async function fetchExplanation(options: {
         diagnosticCode: 'CLIENT_SEMANTIC_REJECTION',
         renderedText: fallbackText,
         requestId,
+        cacheHit: false,
         error: semanticResult.errors.join(' '),
       };
     }
@@ -120,6 +127,7 @@ export async function fetchExplanation(options: {
       source: sourceLabel,
       renderedText: semanticResult.renderedText,
       requestId,
+      cacheHit: data.cacheHit === true,
     };
   } catch (err: unknown) {
     clearTimeout(timer);
@@ -134,6 +142,7 @@ export async function fetchExplanation(options: {
       diagnosticCode: 'GATEWAY_NETWORK_ERROR',
       renderedText: fallbackText,
       requestId,
+      cacheHit: false,
       error: err instanceof Error ? err.message : 'Network error connecting to local explanation gateway',
     };
   }

@@ -50,8 +50,8 @@ CRITICAL CONSTRAINTS:
  */
 export class GroqExplanationAdapter implements ExplanationProviderAdapter {
   public readonly name = 'groq';
+  public readonly model: string;
   private readonly apiKey: string | null;
-  private readonly model: string;
   private readonly fetchFn: typeof fetch;
 
   constructor(options: GroqAdapterOptions) {

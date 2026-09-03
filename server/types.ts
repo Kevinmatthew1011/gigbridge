@@ -6,6 +6,7 @@ export interface ExplainApiRequest {
   requestId: string;
   scenario: ExplanationScenario;
   facts: FactMap;
+  bypassCache?: boolean;
 }
 
 export interface ExplainApiResponseSuccess {
@@ -16,6 +17,7 @@ export interface ExplainApiResponseSuccess {
   renderedText: string;
   messages: RenderedMessage[];
   referencedFactIds: FactId[];
+  cacheHit?: boolean;
 }
 
 export interface ExplainApiResponseError {
@@ -37,6 +39,7 @@ export interface ProviderGenerateOptions {
 
 export interface ExplanationProviderAdapter {
   name: string;
+  model?: string;
   generateExplanation(options: ProviderGenerateOptions): Promise<ExplanationPayload>;
 }
 

@@ -24,12 +24,14 @@ interface ExplanationUIState {
   status: 'idle' | 'loading' | 'success' | 'fallback';
   source: 'ai' | 'mock' | 'fallback' | null;
   diagnosticCode?: string;
+  cacheHit?: boolean;
   renderedText: string | null;
 }
 
 const INITIAL_EXPLANATION_STATE: ExplanationUIState = {
   status: 'idle',
   source: null,
+  cacheHit: false,
   renderedText: null,
 };
 
@@ -56,6 +58,20 @@ export const App: React.FC = () => {
   // Separate Explanation UI states for baseline and preview
   const [baselineExplanation, setBaselineExplanation] = useState<ExplanationUIState>(INITIAL_EXPLANATION_STATE);
   const [previewExplanation, setPreviewExplanation] = useState<ExplanationUIState>(INITIAL_EXPLANATION_STATE);
+
+  // Regeneration cooldown state (2 seconds)
+  const [baselineCooldown, setBaselineCooldown] = useState(false);
+  const [previewCooldown, setPreviewCooldown] = useState(false);
+  const baselineCooldownTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const previewCooldownTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Clean up timers on unmount
+  useEffect(() => {
+    return () => {
+      if (baselineCooldownTimerRef.current) clearTimeout(baselineCooldownTimerRef.current);
+      if (previewCooldownTimerRef.current) clearTimeout(previewCooldownTimerRef.current);
+    };
+  }, []);
 
   // Separate AbortControllers and Request ID tracking to prevent race conditions & stale responses
   const baselineAbortRef = useRef<AbortController | null>(null);
@@ -169,8 +185,14 @@ export const App: React.FC = () => {
   }, [selectedOpportunityId]);
 
   // On-demand explanation handler for baseline cash flow
-  const handleRequestBaselineExplanation = useCallback(async () => {
+  const handleRequestBaselineExplanation = useCallback(async (bypassCache: boolean = false) => {
     if (!isInputValid) return;
+
+    if (bypassCache) {
+      setBaselineCooldown(true);
+      if (baselineCooldownTimerRef.current) clearTimeout(baselineCooldownTimerRef.current);
+      baselineCooldownTimerRef.current = setTimeout(() => setBaselineCooldown(false), 2000);
+    }
 
     if (baselineAbortRef.current) {
       baselineAbortRef.current.abort();
@@ -185,6 +207,7 @@ export const App: React.FC = () => {
     setBaselineExplanation({
       status: 'loading',
       source: null,
+      cacheHit: false,
       renderedText: null,
     });
 
@@ -194,6 +217,7 @@ export const App: React.FC = () => {
         facts: baselineFacts,
         fallbackText: summary.explanation,
         requestId,
+        bypassCache,
         signal: controller.signal,
       });
 
@@ -204,6 +228,7 @@ export const App: React.FC = () => {
         status: result.status,
         source: result.source,
         diagnosticCode: result.diagnosticCode,
+        cacheHit: result.cacheHit === true,
         renderedText: result.renderedText,
       });
     } catch (err: unknown) {
@@ -214,6 +239,7 @@ export const App: React.FC = () => {
         status: 'fallback',
         source: 'fallback',
         diagnosticCode: 'GATEWAY_ERROR',
+        cacheHit: false,
         renderedText: summary.explanation,
       });
     } finally {
@@ -224,8 +250,14 @@ export const App: React.FC = () => {
   }, [isInputValid, baselineFacts, summary.explanation]);
 
   // On-demand explanation handler for single-opportunity simulation
-  const handleRequestPreviewExplanation = useCallback(async () => {
+  const handleRequestPreviewExplanation = useCallback(async (bypassCache: boolean = false) => {
     if (!simulationResult || !simulationFacts || !isInputValid) return;
+
+    if (bypassCache) {
+      setPreviewCooldown(true);
+      if (previewCooldownTimerRef.current) clearTimeout(previewCooldownTimerRef.current);
+      previewCooldownTimerRef.current = setTimeout(() => setPreviewCooldown(false), 2000);
+    }
 
     if (previewAbortRef.current) {
       previewAbortRef.current.abort();
@@ -240,6 +272,7 @@ export const App: React.FC = () => {
     setPreviewExplanation({
       status: 'loading',
       source: null,
+      cacheHit: false,
       renderedText: null,
     });
 
@@ -249,6 +282,7 @@ export const App: React.FC = () => {
         facts: simulationFacts,
         fallbackText: simulationResult.explanation,
         requestId,
+        bypassCache,
         signal: controller.signal,
       });
 
@@ -258,6 +292,7 @@ export const App: React.FC = () => {
         status: result.status,
         source: result.source,
         diagnosticCode: result.diagnosticCode,
+        cacheHit: result.cacheHit === true,
         renderedText: result.renderedText,
       });
     } catch (err: unknown) {
@@ -268,6 +303,7 @@ export const App: React.FC = () => {
         status: 'fallback',
         source: 'fallback',
         diagnosticCode: 'GATEWAY_ERROR',
+        cacheHit: false,
         renderedText: simulationResult.explanation,
       });
     } finally {
@@ -352,6 +388,13 @@ export const App: React.FC = () => {
           <div className="quick-nav-bar">
             <button
               type="button"
+              onClick={() => scrollToSection('financial-inputs-section')}
+              className="quick-nav-btn"
+            >
+              ↓ Manage money & essentials
+            </button>
+            <button
+              type="button"
               onClick={() => scrollToSection('financial-summary')}
               className="quick-nav-btn"
             >
@@ -412,9 +455,12 @@ export const App: React.FC = () => {
               explanationStatus={baselineExplanation.status}
               explanationSource={baselineExplanation.source}
               explanationDiagnosticCode={baselineExplanation.diagnosticCode}
+              explanationCacheHit={baselineExplanation.cacheHit}
               explanationText={baselineExplanation.renderedText}
-              onRequestExplanation={handleRequestBaselineExplanation}
+              onRequestExplanation={() => handleRequestBaselineExplanation(false)}
+              onRegenerateExplanation={() => handleRequestBaselineExplanation(true)}
               isExplanationDisabled={!isInputValid}
+              isExplanationCooldownActive={baselineCooldown}
               explanationDisabledReason={!isInputValid ? 'Complete valid financial inputs to request explanation.' : undefined}
             />
 
@@ -427,9 +473,12 @@ export const App: React.FC = () => {
                 explanationStatus={previewExplanation.status}
                 explanationSource={previewExplanation.source}
                 explanationDiagnosticCode={previewExplanation.diagnosticCode}
+                explanationCacheHit={previewExplanation.cacheHit}
                 explanationText={previewExplanation.renderedText}
-                onRequestExplanation={handleRequestPreviewExplanation}
+                onRequestExplanation={() => handleRequestPreviewExplanation(false)}
+                onRegenerateExplanation={() => handleRequestPreviewExplanation(true)}
                 isExplanationDisabled={!isInputValid}
+                isExplanationCooldownActive={previewCooldown}
                 explanationDisabledReason={!isInputValid ? 'Complete valid financial inputs to request explanation.' : undefined}
               />
             )}

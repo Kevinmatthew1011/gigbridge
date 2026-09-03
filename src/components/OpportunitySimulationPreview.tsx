@@ -12,9 +12,12 @@ interface OpportunitySimulationPreviewProps {
   explanationStatus?: 'idle' | 'loading' | 'success' | 'fallback';
   explanationSource?: 'ai' | 'mock' | 'fallback' | null;
   explanationDiagnosticCode?: string;
+  explanationCacheHit?: boolean;
   explanationText?: string | null;
   onRequestExplanation?: () => void;
+  onRegenerateExplanation?: () => void;
   isExplanationDisabled?: boolean;
+  isExplanationCooldownActive?: boolean;
   explanationDisabledReason?: string;
 }
 
@@ -25,9 +28,12 @@ export const OpportunitySimulationPreview: React.FC<OpportunitySimulationPreview
   explanationStatus = 'idle',
   explanationSource = null,
   explanationDiagnosticCode,
+  explanationCacheHit = false,
   explanationText = null,
   onRequestExplanation,
+  onRegenerateExplanation,
   isExplanationDisabled = false,
+  isExplanationCooldownActive = false,
   explanationDisabledReason,
 }) => {
   const [isComparisonExpanded, setIsComparisonExpanded] = useState(false);
@@ -233,9 +239,12 @@ export const OpportunitySimulationPreview: React.FC<OpportunitySimulationPreview
             status={explanationStatus}
             source={explanationSource}
             diagnosticCode={explanationDiagnosticCode}
+            cacheHit={explanationCacheHit}
             renderedText={explanationText}
             onRequestExplanation={onRequestExplanation}
+            onRegenerateExplanation={onRegenerateExplanation}
             isDisabled={isExplanationDisabled}
+            isCooldownActive={isExplanationCooldownActive}
             disabledReason={explanationDisabledReason}
           />
         </div>

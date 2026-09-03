@@ -7,6 +7,7 @@ import type { ExplanationPayload, ExplanationMessageRef, EventFact, EligibilityF
  */
 export class MockExplanationAdapter implements ExplanationProviderAdapter {
   public readonly name = 'mock';
+  public readonly model = 'deterministic-mock';
 
   public async generateExplanation(options: ProviderGenerateOptions): Promise<ExplanationPayload> {
     const { scenario, facts } = options;

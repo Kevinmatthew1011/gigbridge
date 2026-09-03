@@ -5,9 +5,12 @@ export interface ExplanationBoxProps {
   status: 'idle' | 'loading' | 'success' | 'fallback';
   source: 'ai' | 'mock' | 'fallback' | null;
   diagnosticCode?: string;
+  cacheHit?: boolean;
   renderedText: string | null;
   onRequestExplanation: () => void;
+  onRegenerateExplanation?: () => void;
   isDisabled?: boolean;
+  isCooldownActive?: boolean;
   disabledReason?: string;
 }
 
@@ -16,11 +19,21 @@ export const ExplanationBox: React.FC<ExplanationBoxProps> = ({
   status,
   source,
   diagnosticCode,
+  cacheHit = false,
   renderedText,
   onRequestExplanation,
+  onRegenerateExplanation,
   isDisabled = false,
+  isCooldownActive = false,
   disabledReason,
 }) => {
+  const isRegenerateDisabled = isDisabled || status === 'loading' || isCooldownActive;
+  const regenerateTitle = isCooldownActive
+    ? 'Please wait a moment before regenerating again'
+    : status === 'loading'
+    ? 'Explanation request in progress...'
+    : disabledReason || 'Regenerate explanation bypassing cache';
+
   return (
     <div
       className="explanation-container"
@@ -94,6 +107,21 @@ export const ExplanationBox: React.FC<ExplanationBoxProps> = ({
                   >
                     AI-assisted explanation
                   </span>
+                  {cacheHit && (
+                    <span
+                      className="badge"
+                      style={{
+                        backgroundColor: '#f1f5f9',
+                        color: '#475569',
+                        border: '1px solid #cbd5e1',
+                        fontWeight: 600,
+                        fontSize: '0.75rem',
+                      }}
+                      title="Served from in-memory cache"
+                    >
+                      Cached explanation
+                    </span>
+                  )}
                   <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
                     Gemini organizes verified facts; calculations remain rule-based.
                   </span>
@@ -146,13 +174,13 @@ export const ExplanationBox: React.FC<ExplanationBoxProps> = ({
             </div>
             <button
               type="button"
-              onClick={onRequestExplanation}
-              disabled={isDisabled}
+              onClick={onRegenerateExplanation || onRequestExplanation}
+              disabled={isRegenerateDisabled}
               className="btn btn-secondary btn-sm"
               style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}
-              title="Refresh explanation"
+              title={regenerateTitle}
             >
-              ↻ Refresh
+              {isCooldownActive ? 'Please wait...' : '↻ Regenerate explanation'}
             </button>
           </div>
           <div
