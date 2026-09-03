@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:all": "node scripts/devAll.ts",
     "server": "node server/index.ts",
     "typecheck": "tsc --noEmit",
     "typecheck:server": "tsc --noEmit",

@@ -28,17 +28,26 @@ GigBridge is a liquidity runway, cash-flow forecasting, transparent opportunity 
 
 All scripts are configured in `package.json`:
 
-### 1. Start Local Explanation Gateway (Backend)
+### 1. One-Command Full Stack Startup (Recommended)
 ```bash
-npm run server
+npm run dev:all
 ```
-Starts the local explanation gateway HTTP service on `http://127.0.0.1:3001`.
+Concurrently starts both the local explanation gateway (`127.0.0.1:3001`) and the Vite frontend dev server (`http://localhost:5173`). Pressing `Ctrl+C` cleanly terminates both child processes.
 
-### 2. Start Frontend Development Server
-```bash
-npm run dev
-```
-Starts the Vite local development server on `http://localhost:5173` (proxies `/api/explain` requests to the gateway).
+### 2. Separate Process Startup (For Debugging & Isolation)
+You can also run both processes independently in separate terminals:
+
+- **Start Explanation Gateway (Backend):**
+  ```bash
+  npm run server
+  ```
+  Starts the gateway HTTP service on `http://127.0.0.1:3001`.
+
+- **Start Frontend Development Server (Frontend):**
+  ```bash
+  npm run dev
+  ```
+  Starts the Vite development server on `http://localhost:5173` (proxies `/api` to `127.0.0.1:3001`).
 
 ### Run Automated Tests
 ```bash
