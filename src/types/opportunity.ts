@@ -1,4 +1,4 @@
-import { Paise } from './finance';
+import type { Paise } from './finance.ts';
 
 export type TransportType = 'two_wheeler' | 'bicycle' | 'walking' | 'public_transport' | 'four_wheeler';
 

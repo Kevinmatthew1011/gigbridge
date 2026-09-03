@@ -12,6 +12,7 @@ coverage/
 .env
 .env.*
 !.env.example
+!.env.server.example
 
 # Local / temporary files & logs
 *.local

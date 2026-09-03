@@ -1,13 +1,13 @@
-import {
+import type {
   CashFlowSummary,
   DayForecast,
   FinancialInputs,
   Bill,
   Payout,
   ExcludedPayout,
-} from '../types/finance';
-import { addDays, compareDateStrings, formatDateDisplay, isValidDateString } from './dates';
-import { formatINR } from './formatters';
+} from '../types/finance.ts';
+import { addDays, compareDateStrings, formatDateDisplay, isValidDateString } from './dates.ts';
+import { formatINR } from './formatters.ts';
 
 export const SEED_FINANCIAL_INPUTS: FinancialInputs = {
   currentCashPaise: 70000, // ₹700

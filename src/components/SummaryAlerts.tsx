@@ -1,15 +1,30 @@
 import React from 'react';
-import { CashFlowSummary, Paise } from '../types/finance';
-import { formatINR } from '../utils/formatters';
+import type { CashFlowSummary, Paise } from '../types/finance.ts';
+import { formatINR } from '../utils/formatters.ts';
+import { ExplanationBox } from './ExplanationBox.tsx';
 
 interface SummaryAlertsProps {
   summary: CashFlowSummary;
   safetyBufferPaise: Paise;
+  explanationStatus?: 'idle' | 'loading' | 'success' | 'fallback';
+  explanationSource?: 'ai' | 'mock' | 'fallback' | null;
+  explanationDiagnosticCode?: string;
+  explanationText?: string | null;
+  onRequestExplanation?: () => void;
+  isExplanationDisabled?: boolean;
+  explanationDisabledReason?: string;
 }
 
 export const SummaryAlerts: React.FC<SummaryAlertsProps> = ({
   summary,
   safetyBufferPaise,
+  explanationStatus = 'idle',
+  explanationSource = null,
+  explanationDiagnosticCode,
+  explanationText = null,
+  onRequestExplanation,
+  isExplanationDisabled = false,
+  explanationDisabledReason,
 }) => {
   const {
     earliestEssentialShortfall,
@@ -19,8 +34,8 @@ export const SummaryAlerts: React.FC<SummaryAlertsProps> = ({
     days,
   } = summary;
 
-  const hasShortfall = !!earliestEssentialShortfall;
-  const hasBufferBreach = !!earliestBufferBreach;
+  const hasShortfall = !earliestEssentialShortfall ? false : true;
+  const hasBufferBreach = !earliestBufferBreach ? false : true;
 
   // Find the day corresponding to the lowest projected cash over 14 days
   const lowestCashDay = days.find(
@@ -48,7 +63,7 @@ export const SummaryAlerts: React.FC<SummaryAlertsProps> = ({
             : '14-Day Essential Expense Coverage'}
         </div>
 
-        {hasShortfall ? (
+        {hasShortfall && earliestEssentialShortfall ? (
           <div>
             <div className="metric-value amount-negative" style={{ fontSize: '1.65rem' }}>
               Your first essentials gap is {formatINR(earliestEssentialShortfall.deficitPaise)} on Day {earliestEssentialShortfall.dayIndex} ({earliestEssentialShortfall.formattedDate})
@@ -58,7 +73,7 @@ export const SummaryAlerts: React.FC<SummaryAlertsProps> = ({
               <strong>{formatINR(earliestEssentialShortfall.bufferInclusiveGapPaise)}</strong> total (includes the {formatINR(earliestEssentialShortfall.deficitPaise)} essential deficit; not an extra charge).
             </div>
           </div>
-        ) : hasBufferBreach ? (
+        ) : hasBufferBreach && earliestBufferBreach ? (
           <div>
             <div className="metric-value" style={{ color: 'var(--color-warning)', fontSize: '1.45rem' }}>
               First below safety buffer on Day {earliestBufferBreach.dayIndex} ({earliestBufferBreach.formattedDate})
@@ -80,7 +95,7 @@ export const SummaryAlerts: React.FC<SummaryAlertsProps> = ({
       </div>
 
       {/* Secondary Context Metric Cards */}
-      <div className="summary-grid" style={{ marginBottom: 0 }}>
+      <div className="summary-grid" style={{ marginBottom: onRequestExplanation ? '0.75rem' : 0 }}>
         {/* Card 1: Buffer Status */}
         <div
           className={`metric-card ${
@@ -146,6 +161,20 @@ export const SummaryAlerts: React.FC<SummaryAlertsProps> = ({
           </div>
         </div>
       </div>
+
+      {/* On-Demand Explanation Section */}
+      {onRequestExplanation && (
+        <ExplanationBox
+          scenarioLabel="14-day cash flow"
+          status={explanationStatus}
+          source={explanationSource}
+          diagnosticCode={explanationDiagnosticCode}
+          renderedText={explanationText}
+          onRequestExplanation={onRequestExplanation}
+          isDisabled={isExplanationDisabled}
+          disabledReason={explanationDisabledReason}
+        />
+      )}
     </div>
   );
 };

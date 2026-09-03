@@ -1,5 +1,5 @@
-import { CashFlowSummary, Paise } from './finance';
-import { Opportunity } from './opportunity';
+import type { CashFlowSummary, Paise } from './finance.ts';
+import type { Opportunity } from './opportunity.ts';
 
 export interface OriginalShortfallComparison {
   dayIndex: number;

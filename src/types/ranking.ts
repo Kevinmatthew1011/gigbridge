@@ -1,6 +1,6 @@
-import { Paise } from './finance';
-import { Opportunity, OpportunityCategory } from './opportunity';
-import { SimulationResult } from './simulation';
+import type { Paise } from './finance.ts';
+import type { Opportunity, OpportunityCategory } from './opportunity.ts';
+import type { SimulationResult } from './simulation.ts';
 
 export interface RankingMetrics {
   deficitReductionPaise: Paise;

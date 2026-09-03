@@ -28,16 +28,17 @@ GigBridge is a liquidity runway, cash-flow forecasting, transparent opportunity 
 
 All scripts are configured in `package.json`:
 
-### Install Dependencies
+### 1. Start Local Explanation Gateway (Backend)
 ```bash
-npm install
+npm run server
 ```
+Starts the local explanation gateway HTTP service on `http://127.0.0.1:3001`.
 
-### Start Development Server
+### 2. Start Frontend Development Server
 ```bash
 npm run dev
 ```
-Starts the Vite local development server (typically at `http://localhost:5173`).
+Starts the Vite local development server on `http://localhost:5173` (proxies `/api/explain` requests to the gateway).
 
 ### Run Automated Tests
 ```bash
@@ -48,6 +49,11 @@ Runs the Vitest test suite once in non-watch mode.
 To run tests in interactive watch mode:
 ```bash
 npm run test:watch
+```
+
+### Typecheck
+```bash
+npm run typecheck
 ```
 
 ### Build for Production
@@ -131,7 +137,23 @@ Spins up a local web server serving the built `dist/` directory.
   - Presents qualified options under *"Options that could reduce your first shortfall"* with rank badges (e.g. `Rank 1`) and structured metric breakdowns.
   - Includes expandable *"How options are ordered"* explanation detailing the transparent lexicographical rules.
   - Preserves separate groups for late-paying opportunities (with preview enabled and timing warning), uncertain terms, and ineligible conflicts without duplicate cards.
-  - Renders neutral general browsing ("Eligible Opportunities") when baseline has no essential shortfall.
+### Feature 5: Constrained AI Explanation Gateway
+- **Architecture & Determinism Boundary:**
+  - Calculations, cash-flow projections, and opportunity rankings remain 100% deterministic and rule-based.
+  - The AI provider (Google Gemini or Groq) is strictly constrained to selecting approved message IDs and citing verified fact IDs.
+  - All rendered explanations, numbers, and INR currency formatting are generated solely by application-owned plain-text templates (`src/utils/explanationTemplates.ts`).
+- **Deterministic Fact Extraction (`src/utils/factExtractor.ts`):**
+  - Extracts canonical typed facts directly from financial engine results.
+  - Strips user-entered free-text descriptions, bill names, and personal information before sending payloads to the server.
+- **Provider Adapters & Safe Diagnostics:**
+  - Primary Provider: Google Gemini (`gemini-3.6-flash`) with structured schema and minimal thinking configuration for fast inference.
+  - Optional Provider: Groq (`openai/gpt-oss-20b`) with JSON mode.
+  - Offline Mock Mode: `EXPLAIN_PROVIDER=mock` for deterministic development without external API calls or credentials.
+  - Privacy-preserving diagnostic codes in development mode (`GEMINI_AUTH_ERROR`, `GROQ_AUTH_ERROR`, `GEMINI_TIMEOUT_ERROR`, etc.) without exposing keys or payloads.
+- **Truthful User-Facing Badging:**
+  - `source: "ai"`: *"AI-assisted explanation"* (with subtext explaining that calculations remain rule-based).
+  - `source: "mock"`: *"Demo explanation — no AI model connected"*.
+  - `source: "fallback"`: *"Standard summary"*.
 
 ---
 
@@ -139,4 +161,4 @@ Spins up a local web server serving the built `dist/` directory.
 
 - **In-Memory State:** All inputs, preferences, and timeline modifications are stored in React component memory; refreshing the page resets state back to the seed demo scenario.
 - **Single-Opportunity Preview Only:** Multi-gig combinations and cumulative booking simulations are omitted.
-- **No External Integrations:** No backend APIs, database persistence, transaction history tracking, offline synchronization, or banking integrations.
+- **No External Integrations:** No database persistence, transaction history tracking, offline synchronization, or banking integrations.

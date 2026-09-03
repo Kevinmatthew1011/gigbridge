@@ -1,22 +1,37 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { FinancialInputs } from './types/finance';
-import { WorkerPreferences, Opportunity } from './types/opportunity';
-import { getSeedInputs, calculate14DayCashFlow } from './utils/cashFlowEngine';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import type { FinancialInputs } from './types/finance.ts';
+import type { WorkerPreferences, Opportunity } from './types/opportunity.ts';
+import { getSeedInputs, calculate14DayCashFlow } from './utils/cashFlowEngine.ts';
 import {
   getSeedWorkerPreferences,
   getSeedOpportunities,
   evaluateOpportunityCatalog,
-} from './utils/opportunityEngine';
-import { simulateOpportunity } from './utils/simulationEngine';
-import { rankOpportunitiesForImmediateGap } from './utils/rankingEngine';
-import { getTodayDateString } from './utils/dates';
-import { Banner } from './components/Banner';
-import { FinancialInputPanel } from './components/FinancialInputPanel';
-import { WorkerPreferencesPanel } from './components/WorkerPreferencesPanel';
-import { SummaryAlerts } from './components/SummaryAlerts';
-import { TimelineView } from './components/TimelineView';
-import { OpportunityCatalog } from './components/OpportunityCatalog';
-import { OpportunitySimulationPreview } from './components/OpportunitySimulationPreview';
+} from './utils/opportunityEngine.ts';
+import { simulateOpportunity } from './utils/simulationEngine.ts';
+import { rankOpportunitiesForImmediateGap } from './utils/rankingEngine.ts';
+import { getTodayDateString, isValidDateString } from './utils/dates.ts';
+import { extractBaselineFacts, extractAllFacts } from './utils/factExtractor.ts';
+import { fetchExplanation } from './utils/explanationClient.ts';
+import { Banner } from './components/Banner.tsx';
+import { FinancialInputPanel } from './components/FinancialInputPanel.tsx';
+import { WorkerPreferencesPanel } from './components/WorkerPreferencesPanel.tsx';
+import { SummaryAlerts } from './components/SummaryAlerts.tsx';
+import { TimelineView } from './components/TimelineView.tsx';
+import { OpportunityCatalog } from './components/OpportunityCatalog.tsx';
+import { OpportunitySimulationPreview } from './components/OpportunitySimulationPreview.tsx';
+
+interface ExplanationUIState {
+  status: 'idle' | 'loading' | 'success' | 'fallback';
+  source: 'ai' | 'mock' | 'fallback' | null;
+  diagnosticCode?: string;
+  renderedText: string | null;
+}
+
+const INITIAL_EXPLANATION_STATE: ExplanationUIState = {
+  status: 'idle',
+  source: null,
+  renderedText: null,
+};
 
 export const App: React.FC = () => {
   const defaultStartDate = useMemo(() => getTodayDateString(), []);
@@ -37,6 +52,16 @@ export const App: React.FC = () => {
 
   // Focus management ref for restoring focus upon closing preview
   const lastTriggerElementRef = useRef<HTMLElement | null>(null);
+
+  // Separate Explanation UI states for baseline and preview
+  const [baselineExplanation, setBaselineExplanation] = useState<ExplanationUIState>(INITIAL_EXPLANATION_STATE);
+  const [previewExplanation, setPreviewExplanation] = useState<ExplanationUIState>(INITIAL_EXPLANATION_STATE);
+
+  // Separate AbortControllers and Request ID tracking to prevent race conditions & stale responses
+  const baselineAbortRef = useRef<AbortController | null>(null);
+  const previewAbortRef = useRef<AbortController | null>(null);
+  const currentBaselineReqIdRef = useRef<string | null>(null);
+  const currentPreviewReqIdRef = useRef<string | null>(null);
 
   // Pure deterministic 14-day baseline cash flow calculation
   const summary = useMemo(() => calculate14DayCashFlow(inputs), [inputs]);
@@ -59,11 +84,16 @@ export const App: React.FC = () => {
     [inputs, opportunities, preferences]
   );
 
-  // Find currently selected opportunity
+  // Find currently selected opportunity and evaluation
   const selectedOpportunity = useMemo(
     () => opportunities.find((o) => o.id === selectedOpportunityId) || null,
     [opportunities, selectedOpportunityId]
   );
+
+  const selectedEvaluation = useMemo(() => {
+    if (!selectedOpportunity) return null;
+    return catalogEvaluation.evaluations.find((e) => e.opportunity.id === selectedOpportunity.id) || null;
+  }, [catalogEvaluation, selectedOpportunity]);
 
   // Simulation Result for selected opportunity
   const simulationResult = useMemo(() => {
@@ -71,13 +101,55 @@ export const App: React.FC = () => {
     return simulateOpportunity(inputs, selectedOpportunity, preferences);
   }, [selectedOpportunity, inputs, preferences]);
 
-  // Track edits to clear preview automatically
+  // Extract canonical typed facts deterministically
+  const baselineFacts = useMemo(() => extractBaselineFacts(inputs, summary), [inputs, summary]);
+
+  const simulationFacts = useMemo(() => {
+    if (!selectedOpportunity) return null;
+    return extractAllFacts({
+      inputs,
+      summary,
+      opportunity: selectedOpportunity,
+      evaluation: selectedEvaluation,
+      simulationResult,
+      rankingResult,
+    });
+  }, [inputs, summary, selectedOpportunity, selectedEvaluation, simulationResult, rankingResult]);
+
+  // Form input validation status
+  const isInputValid = useMemo(() => {
+    return (
+      inputs.currentCashPaise >= 0 &&
+      inputs.dailyEssentialPaise >= 0 &&
+      inputs.safetyBufferPaise >= 0 &&
+      isValidDateString(inputs.startDate)
+    );
+  }, [inputs]);
+
+  // Clear baseline and preview explanations when inputs or preferences change
   const isInitialMount = useRef(true);
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false;
       return;
     }
+
+    // Cancel in-flight baseline request
+    if (baselineAbortRef.current) {
+      baselineAbortRef.current.abort();
+      baselineAbortRef.current = null;
+    }
+    currentBaselineReqIdRef.current = null;
+    setBaselineExplanation(INITIAL_EXPLANATION_STATE);
+
+    // Cancel in-flight preview request
+    if (previewAbortRef.current) {
+      previewAbortRef.current.abort();
+      previewAbortRef.current = null;
+    }
+    currentPreviewReqIdRef.current = null;
+    setPreviewExplanation(INITIAL_EXPLANATION_STATE);
+
     if (selectedOpportunityId) {
       setSelectedOpportunityId(null);
       setPreviewClearedNotice(
@@ -86,25 +158,156 @@ export const App: React.FC = () => {
     }
   }, [inputs, preferences]);
 
-  // Reset restores both financial inputs and worker preferences and clears preview
+  // Clear preview explanation when selected opportunity changes
+  useEffect(() => {
+    if (previewAbortRef.current) {
+      previewAbortRef.current.abort();
+      previewAbortRef.current = null;
+    }
+    currentPreviewReqIdRef.current = null;
+    setPreviewExplanation(INITIAL_EXPLANATION_STATE);
+  }, [selectedOpportunityId]);
+
+  // On-demand explanation handler for baseline cash flow
+  const handleRequestBaselineExplanation = useCallback(async () => {
+    if (!isInputValid) return;
+
+    if (baselineAbortRef.current) {
+      baselineAbortRef.current.abort();
+    }
+
+    const controller = new AbortController();
+    baselineAbortRef.current = controller;
+
+    const requestId = `req_base_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    currentBaselineReqIdRef.current = requestId;
+
+    setBaselineExplanation({
+      status: 'loading',
+      source: null,
+      renderedText: null,
+    });
+
+    try {
+      const result = await fetchExplanation({
+        scenario: 'baseline_summary',
+        facts: baselineFacts,
+        fallbackText: summary.explanation,
+        requestId,
+        signal: controller.signal,
+      });
+
+      // Discard stale responses if requestId has changed
+      if (currentBaselineReqIdRef.current !== requestId) return;
+
+      setBaselineExplanation({
+        status: result.status,
+        source: result.source,
+        diagnosticCode: result.diagnosticCode,
+        renderedText: result.renderedText,
+      });
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === 'AbortError') return;
+      if (currentBaselineReqIdRef.current !== requestId) return;
+
+      setBaselineExplanation({
+        status: 'fallback',
+        source: 'fallback',
+        diagnosticCode: 'GATEWAY_ERROR',
+        renderedText: summary.explanation,
+      });
+    } finally {
+      if (baselineAbortRef.current === controller) {
+        baselineAbortRef.current = null;
+      }
+    }
+  }, [isInputValid, baselineFacts, summary.explanation]);
+
+  // On-demand explanation handler for single-opportunity simulation
+  const handleRequestPreviewExplanation = useCallback(async () => {
+    if (!simulationResult || !simulationFacts || !isInputValid) return;
+
+    if (previewAbortRef.current) {
+      previewAbortRef.current.abort();
+    }
+
+    const controller = new AbortController();
+    previewAbortRef.current = controller;
+
+    const requestId = `req_prev_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    currentPreviewReqIdRef.current = requestId;
+
+    setPreviewExplanation({
+      status: 'loading',
+      source: null,
+      renderedText: null,
+    });
+
+    try {
+      const result = await fetchExplanation({
+        scenario: 'single_opportunity_preview',
+        facts: simulationFacts,
+        fallbackText: simulationResult.explanation,
+        requestId,
+        signal: controller.signal,
+      });
+
+      if (currentPreviewReqIdRef.current !== requestId) return;
+
+      setPreviewExplanation({
+        status: result.status,
+        source: result.source,
+        diagnosticCode: result.diagnosticCode,
+        renderedText: result.renderedText,
+      });
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === 'AbortError') return;
+      if (currentPreviewReqIdRef.current !== requestId) return;
+
+      setPreviewExplanation({
+        status: 'fallback',
+        source: 'fallback',
+        diagnosticCode: 'GATEWAY_ERROR',
+        renderedText: simulationResult.explanation,
+      });
+    } finally {
+      if (previewAbortRef.current === controller) {
+        previewAbortRef.current = null;
+      }
+    }
+  }, [simulationResult, simulationFacts, isInputValid]);
+
+  // Reset restores both financial inputs and worker preferences and clears preview & explanations
   const handleResetToSeed = () => {
+    if (baselineAbortRef.current) baselineAbortRef.current.abort();
+    if (previewAbortRef.current) previewAbortRef.current.abort();
+    baselineAbortRef.current = null;
+    previewAbortRef.current = null;
+    currentBaselineReqIdRef.current = null;
+    currentPreviewReqIdRef.current = null;
+
     const currentStartDate = inputs.startDate || defaultStartDate;
     setInputs(getSeedInputs(currentStartDate));
     setPreferences(getSeedWorkerPreferences(currentStartDate));
     setSelectedOpportunityId(null);
     setPreviewClearedNotice(null);
+    setBaselineExplanation(INITIAL_EXPLANATION_STATE);
+    setPreviewExplanation(INITIAL_EXPLANATION_STATE);
   };
 
   const handleSelectOpportunity = (opp: Opportunity) => {
-    // Record triggering element for focus restore
     lastTriggerElementRef.current = document.activeElement as HTMLElement | null;
     setSelectedOpportunityId(opp.id);
     setPreviewClearedNotice(null);
   };
 
   const handleClosePreview = () => {
+    if (previewAbortRef.current) previewAbortRef.current.abort();
+    previewAbortRef.current = null;
+    currentPreviewReqIdRef.current = null;
     setSelectedOpportunityId(null);
-    // Restore focus if trigger element is available in DOM
+    setPreviewExplanation(INITIAL_EXPLANATION_STATE);
+
     setTimeout(() => {
       if (lastTriggerElementRef.current && document.body.contains(lastTriggerElementRef.current)) {
         lastTriggerElementRef.current.focus();
@@ -206,6 +409,13 @@ export const App: React.FC = () => {
             <SummaryAlerts
               summary={summary}
               safetyBufferPaise={inputs.safetyBufferPaise}
+              explanationStatus={baselineExplanation.status}
+              explanationSource={baselineExplanation.source}
+              explanationDiagnosticCode={baselineExplanation.diagnosticCode}
+              explanationText={baselineExplanation.renderedText}
+              onRequestExplanation={handleRequestBaselineExplanation}
+              isExplanationDisabled={!isInputValid}
+              explanationDisabledReason={!isInputValid ? 'Complete valid financial inputs to request explanation.' : undefined}
             />
 
             {/* Single Opportunity Impact Preview (when active) */}
@@ -214,6 +424,13 @@ export const App: React.FC = () => {
                 simulationResult={simulationResult}
                 safetyBufferPaise={inputs.safetyBufferPaise}
                 onClosePreview={handleClosePreview}
+                explanationStatus={previewExplanation.status}
+                explanationSource={previewExplanation.source}
+                explanationDiagnosticCode={previewExplanation.diagnosticCode}
+                explanationText={previewExplanation.renderedText}
+                onRequestExplanation={handleRequestPreviewExplanation}
+                isExplanationDisabled={!isInputValid}
+                explanationDisabledReason={!isInputValid ? 'Complete valid financial inputs to request explanation.' : undefined}
               />
             )}
 

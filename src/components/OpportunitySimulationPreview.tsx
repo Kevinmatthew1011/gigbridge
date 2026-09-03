@@ -1,19 +1,34 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { SimulationResult } from '../types/simulation';
-import { Paise } from '../types/finance';
-import { formatINR } from '../utils/formatters';
-import { formatDateDisplay } from '../utils/dates';
+import type { SimulationResult } from '../types/simulation.ts';
+import type { Paise } from '../types/finance.ts';
+import { formatINR } from '../utils/formatters.ts';
+import { formatDateDisplay } from '../utils/dates.ts';
+import { ExplanationBox } from './ExplanationBox.tsx';
 
 interface OpportunitySimulationPreviewProps {
   simulationResult: SimulationResult;
   safetyBufferPaise: Paise;
   onClosePreview: () => void;
+  explanationStatus?: 'idle' | 'loading' | 'success' | 'fallback';
+  explanationSource?: 'ai' | 'mock' | 'fallback' | null;
+  explanationDiagnosticCode?: string;
+  explanationText?: string | null;
+  onRequestExplanation?: () => void;
+  isExplanationDisabled?: boolean;
+  explanationDisabledReason?: string;
 }
 
 export const OpportunitySimulationPreview: React.FC<OpportunitySimulationPreviewProps> = ({
   simulationResult,
   safetyBufferPaise,
   onClosePreview,
+  explanationStatus = 'idle',
+  explanationSource = null,
+  explanationDiagnosticCode,
+  explanationText = null,
+  onRequestExplanation,
+  isExplanationDisabled = false,
+  explanationDisabledReason,
 }) => {
   const [isComparisonExpanded, setIsComparisonExpanded] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -204,11 +219,27 @@ export const OpportunitySimulationPreview: React.FC<OpportunitySimulationPreview
           backgroundColor: '#eff6ff',
           borderColor: '#bfdbfe',
           color: '#1e3a8a',
-          marginBottom: '1rem',
+          marginBottom: onRequestExplanation ? '0.75rem' : '1rem',
         }}
       >
         <strong>Simulated 14-Day Impact:</strong> {explanation}
       </div>
+
+      {/* On-Demand Structured Explanation */}
+      {onRequestExplanation && (
+        <div style={{ marginBottom: '1rem' }}>
+          <ExplanationBox
+            scenarioLabel="single-gig simulation"
+            status={explanationStatus}
+            source={explanationSource}
+            diagnosticCode={explanationDiagnosticCode}
+            renderedText={explanationText}
+            onRequestExplanation={onRequestExplanation}
+            isDisabled={isExplanationDisabled}
+            disabledReason={explanationDisabledReason}
+          />
+        </div>
+      )}
 
       {/* Progressive 14-Day Comparison Detail */}
       <div style={{ marginTop: '0.75rem' }}>

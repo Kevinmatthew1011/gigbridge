@@ -1,4 +1,4 @@
-import { Paise } from '../types/finance';
+import type { Paise } from '../types/finance.ts';
 
 /**
  * Formats integer paise into standard Indian Rupee (INR) representation.
