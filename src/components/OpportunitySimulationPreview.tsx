@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { SimulationResult } from '../types/simulation';
 import { Paise } from '../types/finance';
 import { formatINR } from '../utils/formatters';
@@ -15,6 +15,9 @@ export const OpportunitySimulationPreview: React.FC<OpportunitySimulationPreview
   safetyBufferPaise,
   onClosePreview,
 }) => {
+  const [isComparisonExpanded, setIsComparisonExpanded] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
   const {
     opportunity,
     baselineSummary,
@@ -29,16 +32,26 @@ export const OpportunitySimulationPreview: React.FC<OpportunitySimulationPreview
   const totalCostsPaise = opportunity.incrementalCosts.reduce((s, c) => s + c.amountPaise, 0);
   const netEarningsPaise = opportunity.earnings.grossAmountPaise - totalCostsPaise;
 
+  // Auto-scroll preview into view on mount if supported
+  useEffect(() => {
+    if (typeof containerRef.current?.scrollIntoView === 'function') {
+      containerRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [opportunity.id]);
+
   return (
     <div
+      ref={containerRef}
+      id="simulation-preview-section"
       className="card"
       style={{
         border: '2px solid var(--color-primary)',
-        backgroundColor: '#f8fafc',
+        backgroundColor: '#fafbfc',
         boxShadow: 'var(--shadow-md)',
         marginBottom: '1.5rem',
       }}
       aria-labelledby="preview-heading"
+      tabIndex={-1}
     >
       {/* Header with Title and Close Action */}
       <div className="card-header" style={{ borderBottomColor: 'var(--color-border)' }}>
@@ -129,7 +142,7 @@ export const OpportunitySimulationPreview: React.FC<OpportunitySimulationPreview
               )}
             </div>
             <div className="metric-sub">
-              Baseline deficit was {formatINR(originalShortfallComparison.baselineDeficitPaise)}. Projected Day {originalShortfallComparison.dayIndex} cash is{' '}
+              Baseline deficit was {formatINR(originalShortfallComparison.baselineDeficitPaise)}. Projected Day {originalShortfallComparison.dayIndex} cash becomes{' '}
               <strong>{formatINR(originalShortfallComparison.simulatedBalanceAtEventPaise)}</strong>.
             </div>
           </div>
@@ -197,103 +210,111 @@ export const OpportunitySimulationPreview: React.FC<OpportunitySimulationPreview
         <strong>Simulated 14-Day Impact:</strong> {explanation}
       </div>
 
-      {/* 14-Day Baseline vs Preview Comparison Table */}
-      <div style={{ marginTop: '0.5rem' }}>
-        <h4 style={{ fontSize: '0.95rem', fontWeight: 600, marginBottom: '0.5rem' }}>
-          14-Day Baseline vs. Simulation Comparison
-        </h4>
-        <div className="table-wrapper">
-          <table className="timeline-table">
-            <thead>
-              <tr>
-                <th>Day</th>
-                <th>Date</th>
-                <th className="text-right">Baseline Lowest</th>
-                <th className="text-right">Baseline Closing</th>
-                <th>Sample Opportunity Events</th>
-                <th className="text-right">Simulated Lowest</th>
-                <th className="text-right">Simulated Closing</th>
-                <th className="text-center">Simulated Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {simulatedSummary.days.map((simDay, idx) => {
-                const baseDay = baselineSummary.days[idx];
-                const isShortfall = simDay.hasEssentialShortfall;
-                const isBufferBreach = !isShortfall && simDay.hasBufferBreach;
+      {/* Progressive 14-Day Comparison Detail */}
+      <div style={{ marginTop: '0.75rem' }}>
+        <button
+          type="button"
+          onClick={() => setIsComparisonExpanded(!isComparisonExpanded)}
+          className="btn btn-secondary btn-sm"
+          style={{ marginBottom: isComparisonExpanded ? '0.75rem' : 0 }}
+          aria-expanded={isComparisonExpanded}
+        >
+          {isComparisonExpanded ? 'Hide 14-Day Comparison Table ▲' : 'View Full 14-Day Baseline vs. Simulation Table ▼'}
+        </button>
 
-                // Find candidate events on this day
-                const candidateCostsOnDay = opportunity.incrementalCosts.filter(
-                  (c) => c.paymentDate === simDay.date
-                );
-                const hasCandidatePayoutOnDay =
-                  opportunity.expectedPayout.date === simDay.date &&
-                  opportunity.expectedPayout.timingKnown;
+        {isComparisonExpanded && (
+          <div className="table-wrapper" style={{ marginTop: '0.5rem' }}>
+            <table className="timeline-table">
+              <thead>
+                <tr>
+                  <th>Day</th>
+                  <th>Date</th>
+                  <th className="text-right">Baseline Lowest</th>
+                  <th className="text-right">Baseline Closing</th>
+                  <th>Sample Opportunity Events</th>
+                  <th className="text-right">Simulated Lowest</th>
+                  <th className="text-right">Simulated Closing</th>
+                  <th className="text-center">Simulated Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {simulatedSummary.days.map((simDay, idx) => {
+                  const baseDay = baselineSummary.days[idx];
+                  const isShortfall = simDay.hasEssentialShortfall;
+                  const isBufferBreach = !isShortfall && simDay.hasBufferBreach;
 
-                let rowClass = '';
-                if (isShortfall) rowClass = 'row-shortfall';
-                else if (isBufferBreach) rowClass = 'row-buffer-breach';
+                  const candidateCostsOnDay = opportunity.incrementalCosts.filter(
+                    (c) => c.paymentDate === simDay.date
+                  );
+                  const hasCandidatePayoutOnDay =
+                    opportunity.expectedPayout.date === simDay.date &&
+                    opportunity.expectedPayout.timingKnown;
 
-                return (
-                  <tr key={simDay.dayIndex} className={rowClass}>
-                    <td>
-                      <strong>Day {simDay.dayIndex}</strong>
-                    </td>
-                    <td>{simDay.formattedDate}</td>
-                    <td className="text-right">
-                      <span className={baseDay.minIntradayBalancePaise < 0 ? 'amount-negative' : ''}>
-                        {formatINR(baseDay.minIntradayBalancePaise)}
-                      </span>
-                    </td>
-                    <td className="text-right">
-                      <span className={baseDay.closingBalancePaise < 0 ? 'amount-negative' : ''}>
-                        {formatINR(baseDay.closingBalancePaise)}
-                      </span>
-                    </td>
-                    <td>
-                      {candidateCostsOnDay.map((c) => (
-                        <div key={c.id} className="amount-negative" style={{ fontSize: '0.8rem' }}>
-                          Cost: {c.description} (-{formatINR(c.amountPaise)})
-                        </div>
-                      ))}
-                      {hasCandidatePayoutOnDay && (
-                        <div className="amount-positive" style={{ fontSize: '0.8rem' }}>
-                          Payout: +{formatINR(opportunity.earnings.grossAmountPaise)}
-                        </div>
-                      )}
-                      {candidateCostsOnDay.length === 0 && !hasCandidatePayoutOnDay && (
-                        <span className="amount-muted">—</span>
-                      )}
-                    </td>
-                    <td className="text-right">
-                      <span className={simDay.minIntradayBalancePaise < 0 ? 'amount-negative' : ''}>
-                        {formatINR(simDay.minIntradayBalancePaise)}
-                      </span>
-                    </td>
-                    <td className="text-right">
-                      <strong className={simDay.closingBalancePaise < 0 ? 'amount-negative' : 'amount-positive'}>
-                        {formatINR(simDay.closingBalancePaise)}
-                      </strong>
-                    </td>
-                    <td className="text-center">
-                      {isShortfall ? (
-                        <span className="badge badge-danger">
-                          Shortfall ({formatINR(simDay.essentialShortfallPaise)})
+                  let rowClass = '';
+                  if (isShortfall) rowClass = 'row-shortfall';
+                  else if (isBufferBreach) rowClass = 'row-buffer-breach';
+
+                  return (
+                    <tr key={simDay.dayIndex} className={rowClass}>
+                      <td>
+                        <strong>Day {simDay.dayIndex}</strong>
+                      </td>
+                      <td>{simDay.formattedDate}</td>
+                      <td className="text-right">
+                        <span className={baseDay.minIntradayBalancePaise < 0 ? 'amount-negative' : ''}>
+                          {formatINR(baseDay.minIntradayBalancePaise)}
                         </span>
-                      ) : isBufferBreach ? (
-                        <span className="badge badge-warning">
-                          Below Buffer ({formatINR(simDay.bufferGapPaise)})
+                      </td>
+                      <td className="text-right">
+                        <span className={baseDay.closingBalancePaise < 0 ? 'amount-negative' : ''}>
+                          {formatINR(baseDay.closingBalancePaise)}
                         </span>
-                      ) : (
-                        <span className="badge badge-success">Healthy</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                      </td>
+                      <td>
+                        {candidateCostsOnDay.map((c) => (
+                          <div key={c.id} className="amount-negative" style={{ fontSize: '0.8rem' }}>
+                            Cost: {c.description} (-{formatINR(c.amountPaise)})
+                          </div>
+                        ))}
+                        {hasCandidatePayoutOnDay && (
+                          <div className="amount-positive" style={{ fontSize: '0.8rem' }}>
+                            Payout: +{formatINR(opportunity.earnings.grossAmountPaise)}
+                          </div>
+                        )}
+                        {candidateCostsOnDay.length === 0 && !hasCandidatePayoutOnDay && (
+                          <span className="amount-muted">—</span>
+                        )}
+                      </td>
+                      <td className="text-right">
+                        <span className={simDay.minIntradayBalancePaise < 0 ? 'amount-negative' : ''}>
+                          {formatINR(simDay.minIntradayBalancePaise)}
+                        </span>
+                      </td>
+                      <td className="text-right">
+                        <strong className={simDay.closingBalancePaise < 0 ? 'amount-negative' : 'amount-positive'}>
+                          {formatINR(simDay.closingBalancePaise)}
+                        </strong>
+                      </td>
+                      <td className="text-center">
+                        {isShortfall ? (
+                          <span className="badge badge-danger">
+                            Shortfall ({formatINR(simDay.essentialShortfallPaise)})
+                          </span>
+                        ) : isBufferBreach ? (
+                          <span className="badge badge-warning">
+                            Below Buffer ({formatINR(simDay.bufferGapPaise)})
+                          </span>
+                        ) : (
+                          <span className="badge badge-success">Healthy</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Footer Controls */}

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { CashFlowSummary, Paise } from '../types/finance';
 import { formatINR } from '../utils/formatters';
 
@@ -7,114 +7,164 @@ interface TimelineViewProps {
   safetyBufferPaise: Paise;
 }
 
-export const TimelineView: React.FC<TimelineViewProps> = ({ summary, safetyBufferPaise }) => {
-  const { days, startDate, endDate } = summary;
+export const TimelineView: React.FC<TimelineViewProps> = ({
+  summary,
+  safetyBufferPaise,
+}) => {
+  const [isTimelineExpanded, setIsTimelineExpanded] = useState(false);
+  const { days, earliestEssentialShortfall, earliestBufferBreach } = summary;
 
   return (
-    <div className="card timeline-card">
-      <div className="card-header">
+    <div id="timeline-section" className="card">
+      <div className="card-header" style={{ marginBottom: '0.75rem' }}>
         <div>
-          <h2 className="card-title">14-Day Cash-Flow Timeline</h2>
+          <h2 className="card-title" style={{ fontSize: '1.25rem' }}>
+            14-Day Cash Flow Runway
+          </h2>
           <div className="form-hint">
-            Forecast Horizon: {days[0]?.formattedDate || startDate} to {days[days.length - 1]?.formattedDate || endDate} (Day 1 to Day 14)
+            Daily cash projection from Day 1 to Day 14. Expenses precede payouts on each day.
           </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => setIsTimelineExpanded(!isTimelineExpanded)}
+          className="btn btn-secondary btn-sm"
+          aria-expanded={isTimelineExpanded}
+        >
+          {isTimelineExpanded ? 'Hide Full Timeline ▲' : 'View Full 14-Day Table ▼'}
+        </button>
+      </div>
+
+      {/* Concise Timeline Overview */}
+      <div
+        style={{
+          background: 'var(--color-surface-subtle)',
+          padding: '0.85rem 1rem',
+          borderRadius: 'var(--radius-sm)',
+          fontSize: '0.875rem',
+          marginBottom: isTimelineExpanded ? '1rem' : 0,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '0.75rem',
+        }}
+      >
+        <div>
+          <span style={{ color: 'var(--color-text-muted)' }}>14-Day Trajectory: </span>
+          <strong>{days.length} Days Forecasted</strong>
+          {earliestEssentialShortfall ? (
+            <span className="amount-negative" style={{ marginLeft: '0.5rem' }}>
+              • First shortfall: Day {earliestEssentialShortfall.dayIndex} ({formatINR(earliestEssentialShortfall.deficitPaise)})
+            </span>
+          ) : earliestBufferBreach ? (
+            <span style={{ color: 'var(--color-warning)', marginLeft: '0.5rem', fontWeight: 600 }}>
+              • First below buffer: Day {earliestBufferBreach.dayIndex}
+            </span>
+          ) : (
+            <span className="amount-positive" style={{ marginLeft: '0.5rem' }}>
+              • All essentials covered
+            </span>
+          )}
+        </div>
+        <div style={{ fontSize: '0.825rem', color: 'var(--color-text-dim)' }}>
+          Target Buffer: {formatINR(safetyBufferPaise)}
         </div>
       </div>
 
-      <div className="table-wrapper">
-        <table className="timeline-table">
-          <thead>
-            <tr>
-              <th>Day</th>
-              <th>Date</th>
-              <th className="text-right">Starting Cash</th>
-              <th className="text-right">Daily Essentials</th>
-              <th>Dated Bills & Expenses</th>
-              <th>Expected Payouts</th>
-              <th className="text-right" title="Expenses are counted before payouts when timing is unknown">
-                Lowest Cash That Day
-              </th>
-              <th className="text-right">Closing Cash</th>
-              <th className="text-center">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {days.map((day) => {
-              const hasEssentialShortfall = day.hasEssentialShortfall;
-              const hasBufferBreach = !hasEssentialShortfall && day.hasBufferBreach;
-
-              let rowClass = '';
-              if (hasEssentialShortfall) rowClass = 'row-shortfall';
-              else if (hasBufferBreach) rowClass = 'row-buffer-breach';
-
-              return (
-                <tr key={day.dayIndex} className={rowClass}>
-                  <td>
-                    <strong>Day {day.dayIndex}</strong>
-                  </td>
-                  <td>{day.formattedDate}</td>
-                  <td className="text-right">{formatINR(day.startingBalancePaise)}</td>
-                  <td className="text-right amount-negative">
-                    -{formatINR(day.dailyEssentialPaise)}
-                  </td>
-                  <td>
-                    {day.overdueBillsApplied.length > 0 && (
-                      <div className="amount-negative" style={{ fontSize: '0.85rem' }}>
-                        Overdue: {day.overdueBillsApplied.map((b) => `${b.title} (-${formatINR(b.amountPaise)})`).join(', ')}
-                      </div>
-                    )}
-                    {day.datedBills.length > 0 ? (
-                      <div className="amount-negative" style={{ fontSize: '0.85rem' }}>
-                        {day.datedBills.map((b) => `${b.title} (-${formatINR(b.amountPaise)})`).join(', ')}
-                      </div>
-                    ) : (
-                      day.overdueBillsApplied.length === 0 && <span className="amount-muted">—</span>
-                    )}
-                  </td>
-                  <td>
-                    {day.expectedPayouts.length > 0 ? (
-                      <div className="amount-positive" style={{ fontSize: '0.85rem' }}>
-                        {day.expectedPayouts.map((p) => `${p.title} (+${formatINR(p.amountPaise)})`).join(', ')}
-                      </div>
-                    ) : (
-                      <span className="amount-muted">—</span>
-                    )}
-                  </td>
-                  <td className="text-right">
-                    <span className={day.minIntradayBalancePaise < 0 ? 'amount-negative' : ''}>
-                      {formatINR(day.minIntradayBalancePaise)}
-                    </span>
-                  </td>
-                  <td className="text-right">
-                    <strong className={day.closingBalancePaise < 0 ? 'amount-negative' : 'amount-positive'}>
-                      {formatINR(day.closingBalancePaise)}
-                    </strong>
-                  </td>
-                  <td className="text-center">
-                    {hasEssentialShortfall ? (
-                      <span className="badge badge-danger">
-                        Shortfall ({formatINR(day.essentialShortfallPaise)})
-                      </span>
-                    ) : hasBufferBreach ? (
-                      <span className="badge badge-warning">
-                        Below Buffer ({formatINR(day.bufferGapPaise)})
-                      </span>
-                    ) : (
-                      <span className="badge badge-success">Healthy</span>
-                    )}
-                  </td>
+      {/* Expandable 14-Day Timeline Table */}
+      {isTimelineExpanded && (
+        <div style={{ marginTop: '0.5rem' }}>
+          <div className="table-wrapper">
+            <table className="timeline-table" aria-label="14-day cash flow runway">
+              <thead>
+                <tr>
+                  <th>Day</th>
+                  <th>Date</th>
+                  <th className="text-right">Starting Cash</th>
+                  <th className="text-right">Daily Essentials</th>
+                  <th className="text-right">Bills Due</th>
+                  <th className="text-right">Expected Payouts</th>
+                  <th className="text-right">Lowest Cash That Day</th>
+                  <th className="text-right">Closing Cash</th>
+                  <th className="text-center">Status</th>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+              </thead>
+              <tbody>
+                {days.map((day) => {
+                  const isShortfall = day.hasEssentialShortfall;
+                  const isBufferBreach = !isShortfall && day.hasBufferBreach;
 
-      <div style={{ marginTop: '0.85rem', fontSize: '0.8rem', color: 'var(--color-text-muted)', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-        <div>• <strong>Lowest Cash That Day:</strong> Expenses are counted before payouts when timing is unknown.</div>
-        <div>• <strong>Negative Balances:</strong> Negative projected cash represents an unmet funding need, not authorized borrowing.</div>
-        <div>• <strong>Safety Buffer Target:</strong> {formatINR(safetyBufferPaise)} cushion.</div>
-      </div>
+                  let rowClass = '';
+                  if (isShortfall) rowClass = 'row-shortfall';
+                  else if (isBufferBreach) rowClass = 'row-buffer-breach';
+
+                  return (
+                    <tr key={day.dayIndex} className={rowClass}>
+                      <td>
+                        <strong>Day {day.dayIndex}</strong>
+                      </td>
+                      <td>{day.formattedDate}</td>
+                      <td className="text-right">{formatINR(day.startingBalancePaise)}</td>
+                      <td className="text-right amount-negative">
+                        -{formatINR(day.dailyEssentialPaise)}
+                      </td>
+                      <td className="text-right">
+                        {day.totalDayBillsPaise > 0 ? (
+                          <span className="amount-negative">-{formatINR(day.totalDayBillsPaise)}</span>
+                        ) : (
+                          <span className="amount-muted">—</span>
+                        )}
+                      </td>
+                      <td className="text-right">
+                        {day.totalPayoutsPaise > 0 ? (
+                          <span className="amount-positive">+{formatINR(day.totalPayoutsPaise)}</span>
+                        ) : (
+                          <span className="amount-muted">—</span>
+                        )}
+                      </td>
+                      <td className="text-right">
+                        <span className={day.minIntradayBalancePaise < 0 ? 'amount-negative' : ''}>
+                          {formatINR(day.minIntradayBalancePaise)}
+                        </span>
+                      </td>
+                      <td className="text-right">
+                        <strong
+                          className={
+                            day.closingBalancePaise < 0
+                              ? 'amount-negative'
+                              : day.closingBalancePaise < safetyBufferPaise
+                              ? ''
+                              : 'amount-positive'
+                          }
+                        >
+                          {formatINR(day.closingBalancePaise)}
+                        </strong>
+                      </td>
+                      <td className="text-center">
+                        {isShortfall ? (
+                          <span className="badge badge-danger">
+                            Shortfall ({formatINR(day.essentialShortfallPaise)})
+                          </span>
+                        ) : isBufferBreach ? (
+                          <span className="badge badge-warning">
+                            Below Buffer ({formatINR(day.bufferGapPaise)})
+                          </span>
+                        ) : (
+                          <span className="badge badge-success">Healthy</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="form-hint" style={{ marginTop: '0.6rem', fontSize: '0.8rem' }}>
+            * Lowest Cash That Day reflects balance after essential expenses and bills are deducted, before same-day payouts arrive.
+          </div>
+        </div>
+      )}
     </div>
   );
 };

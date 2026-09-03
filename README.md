@@ -2,7 +2,7 @@
 
 > **Disclaimer:** Fictional demo — sample money and opportunities.
 
-GigBridge is a liquidity runway, cash-flow forecasting, and fictional sample opportunity evaluation tool designed to help delivery workers understand their 14-day cash flow, evaluate essential expense coverage, track safety buffer cushions, and preview single-opportunity impact.
+GigBridge is a liquidity runway, cash-flow forecasting, transparent opportunity ranking, and single-opportunity impact preview tool designed to help delivery workers understand their 14-day cash flow, evaluate essential expense coverage, track safety buffer cushions, and explore feasible extra work options.
 
 ---
 
@@ -116,10 +116,27 @@ Spins up a local web server serving the built `dist/` directory.
   - Automatic invalidation: editing baseline financial inputs or preferences automatically clears active preview with an explanatory notice.
   - "Close Preview" / "Continue Without Extra Work" action returning cleanly to baseline.
 
+### Feature 4: Transparent Opportunity Ranking Logic & UI
+- **Pure Transparent Ranking Engine (`src/utils/rankingEngine.ts`):**
+  - Ranks qualifying feasible opportunities targeting the baseline's earliest essential shortfall.
+  - Strict 6-level lexicographical hierarchy:
+    1. *Greater immediate essential deficit reduction*
+    2. *Smaller buffer-inclusive deficit at that event*
+    3. *Lower upfront cost required before payout*
+    4. *Higher conservative net earnings per work hour*
+    5. *Shorter total return-trip travel time*
+    6. *Deterministic tie-breaker by opportunity ID*
+  - Excludes late-paying, uncertain, ineligible, and zero-reduction opportunities from immediate-gap rankings.
+- **Ranking UI Integration (`src/components/OpportunityCatalog.tsx`):**
+  - Presents qualified options under *"Options that could reduce your first shortfall"* with rank badges (e.g. `Rank 1`) and structured metric breakdowns.
+  - Includes expandable *"How options are ordered"* explanation detailing the transparent lexicographical rules.
+  - Preserves separate groups for late-paying opportunities (with preview enabled and timing warning), uncertain terms, and ineligible conflicts without duplicate cards.
+  - Renders neutral general browsing ("Eligible Opportunities") when baseline has no essential shortfall.
+
 ---
 
 ## Current Limitations
 
 - **In-Memory State:** All inputs, preferences, and timeline modifications are stored in React component memory; refreshing the page resets state back to the seed demo scenario.
-- **Single-Opportunity Preview Only:** Multi-gig combination preview and automatic ranking algorithms are intentionally excluded.
+- **Single-Opportunity Preview Only:** Multi-gig combinations and cumulative booking simulations are omitted.
 - **No External Integrations:** No backend APIs, database persistence, transaction history tracking, offline synchronization, or banking integrations.

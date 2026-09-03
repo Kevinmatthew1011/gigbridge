@@ -57,21 +57,53 @@ This document audits all implemented features, financial calculation rules, oppo
 
 ---
 
-## 5. Manual Verification Checklist (For Human Reviewer)
+## 5. Opportunity Ranking Logic
+
+| Requirement | Evidence (File / Test) | Result | Remaining Limitation |
+| :--- | :--- | :--- | :--- |
+| **Strict 6-level lexicographical sorting** | `src/utils/rankingEngine.ts:121-149`, `src/utils/rankingEngine.test.ts:37-228` | **Passed (Automated)** | 1) Deficit reduction, 2) Buffer gap at event, 3) Upfront costs, 4) Net pay/hour, 5) Travel time, 6) Opportunity ID. |
+| **Deterministic tie-breaker by Opportunity ID** | `src/utils/rankingEngine.ts:148`, `src/utils/rankingEngine.test.ts:203-228` | **Passed (Automated)** | Stable alphabetical sorting on ID when all 5 numeric metrics match. |
+| **Exclusion of late-paying gigs from immediate-gap rank** | `src/utils/rankingEngine.ts:68-80`, `src/utils/rankingEngine.test.ts:21-35` | **Passed (Automated)** | Payouts arriving after the shortfall date cannot cover that gap and are excluded with explicit reason. |
+| **Exclusion of zero deficit reduction opportunities** | `src/utils/rankingEngine.ts:82-94` | **Passed (Automated)** | Opportunities that provide ₹0 reduction at the original shortfall event are excluded from ranked list. |
+| **Exclusion of ineligible, uncertain & unaffordable options** | `src/utils/rankingEngine.ts:58-66`, `src/utils/rankingEngine.test.ts:21-35` | **Passed (Automated)** | Unconfirmed onboarding, schedule conflicts, or unaffordable upfront costs are excluded. |
+| **No-essential-shortfall state (`no_immediate_essential_gap`)** | `src/utils/rankingEngine.ts:35-46`, `src/utils/rankingEngine.test.ts:230-247` | **Passed (Automated)** | Explicit status returned when baseline has no shortfall across 14 days without inventing urgency. |
+| **Structured human-readable ranking reason summaries** | `src/utils/rankingEngine.ts:151-177` | **Passed (Automated)** | Generates per-candidate explanations detailing each metric's contribution to its rank. |
+
+---
+
+## 6. UI Redesign & Human-Centered Experience
+
+| Requirement | Evidence (File / Test) | Result | Remaining Limitation |
+| :--- | :--- | :--- | :--- |
+| **Warm, approachable palette & typography** | `src/index.css` | **Passed (Automated)** | Warm off-white (`#faf8f5`), white surfaces, deep teal actions (`#0f766e`), restrained amber & muted red. |
+| **Compact header & single Reset button** | `src/App.tsx:98-111`, `src/App.test.tsx:6-12` | **Passed (Automated)** | Brand, demo badge, single top reset button. Duplicate buttons removed. |
+| **Human introduction & quick navigation** | `src/App.tsx:113-134`, `src/App.test.tsx:14-22` | **Passed (Automated)** | "Plan the next 14 days" heading and "Review cash flow" / "Explore sample work" quick nav buttons. |
+| **Plain-language primary financial summary** | `src/components/SummaryAlerts.tsx:32-47`, `src/App.test.tsx:35-46` | **Passed (Automated)** | "Your first essentials gap is ₹400 on Day 3" as main result with secondary buffer context. |
+| **Manageable input groupings** | `src/components/FinancialInputPanel.tsx`, `src/components/WorkerPreferencesPanel.tsx`, `src/App.test.tsx:24-33` | **Passed (Automated)** | Structured under 4 clear groups with concise helper hints and inline validation. |
+| **Progressive timeline detail expansion** | `src/components/TimelineView.tsx:38-46`, `src/App.test.tsx:48-63` | **Passed (Automated)** | Accessible expand/collapse toggle for full 14-day table with concise overview bar. |
+| **Focus management on preview close/open** | `src/App.tsx:75-96`, `src/components/OpportunitySimulationPreview.tsx:35-39` | **Passed (Automated)** | Smooth scroll into view on open; focus restoration to trigger button on close. |
+
+---
+
+## 7. Manual Verification Checklist (For Human Reviewer)
 
 Since automated browser subagents were unavailable in this environment, use this manual checklist with `npm run dev` at `http://localhost:5173/`:
 
-1. [ ] **Seed Baseline Check:**
-   - Confirm Current Cash ₹700, Essentials ₹200, Buffer ₹100, Day 3 Bill ₹500, Day 7 Payout ₹1,000.
-   - Confirm timeline displays Day 1 ₹500, Day 2 ₹300, Day 3 -₹400.
-   - Confirm summary displays: First essential shortfall ₹400 on Day 3; First below safety buffer Day 3 (₹500 gap).
-2. [ ] **Opportunity Preview Check:**
-   - Click "Preview impact" on *Sample Packing Shift*.
-   - Confirm preview banner displays "Hypothetical preview — no work booked".
-   - Confirm comparison shows Day 3 deficit covered (balance ₹250), Day 4 below buffer (₹50 gap), and Day 5 remaining shortfall (-₹150).
-   - Click "Preview impact" on *Sample Express Courier Shift* and confirm it replaces the preview.
-3. [ ] **Preview Invalidation Check:**
-   - With a preview open, change Current Cash to ₹800. Confirm the preview closes automatically with an informational alert.
-4. [ ] **Responsive & Mobile Viewport Check:**
-   - Resize browser to 375px width (mobile device mode).
-   - Confirm the input cards stack vertically and the 14-day timeline tables scroll horizontally without truncating content.
+1. [ ] **Human Introduction & Header Check:**
+   - Confirm warm off-white background and deep teal buttons.
+   - Confirm single "Reset to Demo" button in header.
+   - Confirm "Plan the next 14 days" heading with "Review cash flow" and "Explore sample work" jump buttons.
+2. [ ] **Financial Summary Headline:**
+   - Confirm headline reads: *"Your first essentials gap is ₹400 on Day 3 (Sat, 5 Sep)"*.
+   - Confirm secondary cards show Safety Buffer Status (Day 3 gap), Lowest Cash That Day (-₹400), and Day 14 Closing Cash.
+3. [ ] **Input Sections Organization:**
+   - Confirm 4 distinct cards: *"Money available now"*, *"Daily essentials and bills"*, *"Money already earned, arriving later"*, and *"Your availability and work preferences"*.
+4. [ ] **Progressive Timeline Table:**
+   - Confirm 14-day table starts collapsed with concise overview bar.
+   - Click *"View Full 14-Day Table ▼"* and verify table expands with 14 rows, Lowest Cash, Closing Cash, and Status badges.
+5. [ ] **Opportunity Cards & Preview Experience:**
+   - Verify Opp A displays under *"Options that could reduce your first shortfall"* with Rank 1 badge and clear metric breakdown box.
+   - Click *"Preview impact"* on Opp A. Confirm preview smoothly scrolls into view.
+   - Click *"✕ Close Preview"* and confirm focus returns to the preview button.
+6. [ ] **Responsive Viewport Check:**
+   - Test at 375px width (mobile view). Confirm layout reflows into single column with horizontal scrolling on tables.

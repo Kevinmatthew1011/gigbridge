@@ -296,6 +296,52 @@ describe('opportunityEngine', () => {
     });
   });
 
+  describe('Courier screenshot regression state & control toggling', () => {
+    it('accurately categorizes Courier opportunity when skill and onboarding are unchecked', () => {
+      const { inputs, summary, preferences } = getBaseContext();
+
+      // State: Courier skill unchecked, Courier onboarding unchecked
+      const courierUncheckedPrefs: WorkerPreferences = {
+        ...preferences,
+        skills: ['packing'], // Courier skill unchecked
+        confirmedOnboarding: ['Sample Packing Platform'], // Courier onboarding unchecked
+      };
+
+      const oppB = getSeedOpportunities(START_DATE)[1]; // Seed Opp B (Courier shift, payout Day 8)
+      const evaluation = evaluateOpportunity(oppB, courierUncheckedPrefs, inputs, summary);
+
+      // Must be categorized as ineligible_conflict due to missing skills
+      expect(evaluation.skillsMismatch).toBe(true);
+      expect(evaluation.onboardingPending).toBe(true);
+      expect(evaluation.isTooLateForGap).toBe(true);
+      expect(evaluation.category).toBe('ineligible_conflict');
+      expect(evaluation.isEligible).toBe(false);
+
+      // Toggle 1: Check Courier skill ON, leave Courier onboarding OFF
+      const courierSkillOnlyPrefs: WorkerPreferences = {
+        ...courierUncheckedPrefs,
+        skills: ['packing', 'courier_delivery'],
+      };
+      const evalSkillOnly = evaluateOpportunity(oppB, courierSkillOnlyPrefs, inputs, summary);
+      expect(evalSkillOnly.skillsMismatch).toBe(false);
+      expect(evalSkillOnly.onboardingPending).toBe(true);
+      expect(evalSkillOnly.category).toBe('uncertain_terms');
+      expect(evalSkillOnly.isEligible).toBe(false);
+
+      // Toggle 2: Check BOTH Courier skill ON and Courier onboarding ON
+      const courierAllConfirmedPrefs: WorkerPreferences = {
+        ...courierSkillOnlyPrefs,
+        confirmedOnboarding: ['Sample Packing Platform', 'Sample Express Delivery Platform'],
+      };
+      const evalFullyEligible = evaluateOpportunity(oppB, courierAllConfirmedPrefs, inputs, summary);
+      expect(evalFullyEligible.skillsMismatch).toBe(false);
+      expect(evalFullyEligible.onboardingPending).toBe(false);
+      expect(evalFullyEligible.isTooLateForGap).toBe(true);
+      expect(evalFullyEligible.category).toBe('payout_too_late');
+      expect(evalFullyEligible.isEligible).toBe(false);
+    });
+  });
+
   describe('Baseline isolation', () => {
     it('ensures baseline cash flow remains strictly unaffected by preferences or catalog state', () => {
       const { inputs, summary, preferences, opportunities } = getBaseContext();

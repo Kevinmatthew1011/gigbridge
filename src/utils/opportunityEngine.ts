@@ -23,8 +23,8 @@ export function getSeedWorkerPreferences(startDate: string): WorkerPreferences {
     availability,
     approximateArea: 'Koramangala',
     availableTransport: ['two_wheeler'],
-    skills: ['packing', 'delivery'],
-    confirmedOnboarding: ['Sample Packing Platform', 'Sample Courier Platform'],
+    skills: ['packing', 'courier_delivery'],
+    confirmedOnboarding: ['Sample Packing Platform', 'Sample Express Delivery Platform'],
   };
 }
 
@@ -76,7 +76,7 @@ export function getSeedOpportunities(startDate: string): Opportunity[] {
     {
       id: 'seed-opp-b',
       title: 'Sample Express Courier Shift (Fictional)',
-      platformName: 'Sample Courier Platform',
+      platformName: 'Sample Express Delivery Platform',
       workDate: addDays(startDate, 1), // Day 2
       startTime: '10:00',
       endTime: '16:00',
@@ -87,8 +87,8 @@ export function getSeedOpportunities(startDate: string): Opportunity[] {
         costPaise: 0,
       },
       requiredTransport: ['two_wheeler'],
-      requiredSkills: ['delivery'],
-      requiredOnboardingPlatform: 'Sample Courier Platform',
+      requiredSkills: ['courier_delivery'],
+      requiredOnboardingPlatform: 'Sample Express Delivery Platform',
       earnings: {
         type: 'fixed',
         grossAmountPaise: 120000, // ₹1,200
@@ -114,7 +114,7 @@ export function getSeedOpportunities(startDate: string): Opportunity[] {
       estimatedTravel: {
         outboundMinutes: 15,
         returnMinutes: 15,
-        costPaise: 5000, // ₹50
+        costPaise: 0,
       },
       requiredTransport: ['two_wheeler'],
       requiredSkills: ['packing'],
@@ -130,7 +130,7 @@ export function getSeedOpportunities(startDate: string): Opportunity[] {
           amountPaise: 5000, // ₹50
           paymentDate: addDays(startDate, 1),
           timingKnown: true,
-          isTravelCost: true,
+          isTravelCost: false,
         },
       ],
       expectedPayout: {

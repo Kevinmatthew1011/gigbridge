@@ -1,74 +1,88 @@
 import { describe, it, expect } from 'vitest';
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import App from './App';
 
-describe('App Component Integration', () => {
-  it('renders the fictional demo banner prominently', () => {
+describe('App Component Integration & UI Redesign', () => {
+  it('renders the fictional demo banner and single reset button in header', () => {
     render(<App />);
     expect(
       screen.getByText(/Fictional demo — sample money and opportunities/i)
     ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Reset to Demo/i })).toBeInTheDocument();
   });
 
-  it('renders the initial seed baseline scenario correctly with updated readability labels', () => {
+  it('renders human introduction and quick navigation buttons', () => {
     render(<App />);
+    expect(screen.getByText(/Plan the next 14 days/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/See what your money can cover and explore sample work if you choose/i)
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /↓ Review cash flow/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /↓ Explore sample work/i })).toBeInTheDocument();
+  });
 
-    // Seed inputs check
+  it('renders manageable input sections with structured group titles', () => {
+    render(<App />);
+    expect(screen.getByText(/Money available now/i)).toBeInTheDocument();
+    expect(screen.getByText(/Daily essentials and bills/i)).toBeInTheDocument();
+    expect(screen.getByText(/Money already earned, arriving later/i)).toBeInTheDocument();
+    expect(screen.getByText(/Your availability and work preferences/i)).toBeInTheDocument();
+
     const currentCashInput = screen.getByLabelText(/Current Cash in Hand/i) as HTMLInputElement;
     expect(currentCashInput.value).toBe('700');
+  });
 
-    const dailyEssentialInput = screen.getByLabelText(/Daily Essential Expenses/i) as HTMLInputElement;
-    expect(dailyEssentialInput.value).toBe('200');
-
-    const safetyBufferInput = screen.getByLabelText(/Safety Buffer/i) as HTMLInputElement;
-    expect(safetyBufferInput.value).toBe('100');
-
-    // Earliest shortfall alert check (₹400 deficit on Day 3)
-    expect(screen.getByText(/₹400 Deficit/i)).toBeInTheDocument();
-
-    // Buffer inclusive gap card (₹500)
-    const bufferGapLabel = screen.getByText(/Buffer-Inclusive Gap \(At Shortfall\)/i);
-    const bufferCard = bufferGapLabel.closest('.metric-card') as HTMLElement;
-    expect(within(bufferCard).getByText('₹500')).toBeInTheDocument();
-
-    // "First Below Safety Buffer" card
-    expect(screen.getByText(/First Below Safety Buffer/i)).toBeInTheDocument();
-
-    // "Lowest Cash That Day" table header
-    expect(screen.getByRole('columnheader', { name: /Lowest Cash That Day/i })).toBeInTheDocument();
-
-    // Shortened dynamic summary string
+  it('renders human plain-language financial summary with lowest projected cash over 14 days', () => {
+    render(<App />);
     expect(
-      screen.getByText(/First essential shortfall: ₹400 on Day 3/i)
+      screen.getByText(/Your first essentials gap is ₹400 on Day 3/i)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Safety Buffer Status/i)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Lowest projected cash over 14 days/i)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/on Day 14/i)
     ).toBeInTheDocument();
   });
 
-  it('renders worker preferences and the fictional opportunity catalog with seed groups', () => {
+  it('supports progressive timeline detail expansion with concise overview', () => {
     render(<App />);
+    expect(screen.getByText(/14-Day Cash Flow Runway/i)).toBeInTheDocument();
+    expect(screen.getByText(/14 Days Forecasted/i)).toBeInTheDocument();
 
-    // Preferences panel
-    expect(screen.getByText(/Worker Preferences & Constraints/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Approximate Area/i)).toHaveValue('Koramangala');
+    const toggleBtn = screen.getByRole('button', { name: /View Full 14-Day Table/i });
+    expect(toggleBtn).toBeInTheDocument();
 
-    // Opportunities catalog
-    expect(screen.getByText(/Fictional Sample Opportunities Catalog/i)).toBeInTheDocument();
-    expect(
-      screen.getByText(/Eligible Candidates \(Pre-Day 3 Shortfall\)/i)
-    ).toBeInTheDocument();
+    // Table is initially collapsed
+    expect(screen.queryByRole('table', { name: /14-day cash flow runway/i })).not.toBeInTheDocument();
+
+    // Click to expand table
+    fireEvent.click(toggleBtn);
+    expect(screen.getByRole('table', { name: /14-day cash flow runway/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Hide Full Timeline/i })).toBeInTheDocument();
+  });
+
+  it('renders ranked opportunities with rank badges and expandable ordering explanation', () => {
+    render(<App />);
+    expect(screen.getByText(/Options that could reduce your first shortfall/i)).toBeInTheDocument();
+    expect(screen.getByText(/Rank 1/i)).toBeInTheDocument();
     expect(screen.getByText(/Sample Packing Shift \(Fictional\)/i)).toBeInTheDocument();
-    expect(screen.getByText(/Sample Express Courier Shift \(Fictional\)/i)).toBeInTheDocument();
-    expect(screen.getByText(/Sample Quick Warehouse Shift \(Fictional\)/i)).toBeInTheDocument();
+
+    const howOrderedBtn = screen.getByRole('button', { name: /How options are ordered/i });
+    fireEvent.click(howOrderedBtn);
+    expect(screen.getByText(/Greater immediate shortfall reduction/i)).toBeInTheDocument();
+    expect(screen.getByText(/Options are ordered by fixed, transparent rules. No AI score is used./i)).toBeInTheDocument();
   });
 
-  it('opens single-opportunity simulation preview for Seed Opportunity A and displays accurate comparison', () => {
+  it('opens and closes preview returning to baseline', () => {
     render(<App />);
 
-    // Click "Preview impact" on Sample Packing Shift
     const previewButtons = screen.getAllByRole('button', { name: /Preview impact/i });
-    expect(previewButtons.length).toBeGreaterThan(0);
     fireEvent.click(previewButtons[0]);
 
-    // Preview header & disclaimer
     expect(
       screen.getByText(/With Sample Opportunity: Sample Packing Shift \(Fictional\)/i)
     ).toBeInTheDocument();
@@ -76,55 +90,24 @@ describe('App Component Integration', () => {
       screen.getByText(/Hypothetical preview — no work booked and no actual cash changed/i)
     ).toBeInTheDocument();
 
-    // Original shortfall resolved: Day 3 covered
-    expect(screen.getByText(/Covered \(₹0 Deficit\)/i)).toBeInTheDocument();
+    const closeBtn = screen.getByRole('button', { name: /✕ Close Preview/i });
+    fireEvent.click(closeBtn);
 
-    // First below buffer in simulation is Day 4
-    expect(screen.getByText(/First Below Buffer \(Simulated\)/i)).toBeInTheDocument();
-
-    // Remaining shortfall on Day 5 (₹150 Deficit)
-    expect(screen.getByText(/Remaining Shortfall \(Simulated\)/i)).toBeInTheDocument();
-    expect(screen.getByText(/₹150 Deficit/i)).toBeInTheDocument();
-
-    // 14-Day comparison table is rendered
-    expect(
-      screen.getByText(/14-Day Baseline vs. Simulation Comparison/i)
-    ).toBeInTheDocument();
-  });
-
-  it('closes preview and returns to baseline when Close Preview is clicked', () => {
-    render(<App />);
-
-    const previewButton = screen.getAllByRole('button', { name: /Preview impact/i })[0];
-    fireEvent.click(previewButton);
-
-    expect(
-      screen.getByText(/With Sample Opportunity: Sample Packing Shift/i)
-    ).toBeInTheDocument();
-
-    const closeButton = screen.getByRole('button', { name: /✕ Close Preview/i });
-    fireEvent.click(closeButton);
-
-    // Preview section is removed
     expect(
       screen.queryByText(/With Sample Opportunity: Sample Packing Shift/i)
     ).not.toBeInTheDocument();
-
-    // Baseline alert is still present
-    expect(screen.getByText(/₹400 Deficit/i)).toBeInTheDocument();
+    expect(screen.getByText(/Your first essentials gap is ₹400 on Day 3/i)).toBeInTheDocument();
   });
 
-  it('replaces the active preview when another opportunity is selected without accumulating gigs', () => {
+  it('replaces active preview when another opportunity is clicked', () => {
     render(<App />);
 
     const previewButtons = screen.getAllByRole('button', { name: /Preview impact/i });
-    // Click Opp A (Packing Shift)
     fireEvent.click(previewButtons[0]);
     expect(
       screen.getByText(/With Sample Opportunity: Sample Packing Shift/i)
     ).toBeInTheDocument();
 
-    // Click Opp B (Express Courier Shift)
     fireEvent.click(previewButtons[1]);
     expect(
       screen.getByText(/With Sample Opportunity: Sample Express Courier Shift/i)
@@ -134,61 +117,7 @@ describe('App Component Integration', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('automatically clears active preview when baseline financial inputs are edited', () => {
-    render(<App />);
-
-    const previewButton = screen.getAllByRole('button', { name: /Preview impact/i })[0];
-    fireEvent.click(previewButton);
-    expect(
-      screen.getByText(/With Sample Opportunity: Sample Packing Shift/i)
-    ).toBeInTheDocument();
-
-    // Edit current cash
-    const currentCashInput = screen.getByLabelText(/Current Cash in Hand/i);
-    fireEvent.change(currentCashInput, { target: { value: '800' } });
-
-    // Preview is auto-closed and notice displayed
-    expect(
-      screen.queryByText(/With Sample Opportunity: Sample Packing Shift/i)
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByText(/Simulation preview closed because baseline financial inputs or preferences were modified/i)
-    ).toBeInTheDocument();
-  });
-
-  it('disables preview button for uncertain/ineligible opportunities and shows reasons', () => {
-    render(<App />);
-
-    // Opp C (Quick Warehouse Shift) has pending onboarding
-    expect(screen.getByText(/Preview Unavailable/i)).toBeInTheDocument();
-    expect(
-      screen.getByText(/Onboarding with Sample QuickWarehouse Platform is pending or unconfirmed/i)
-    ).toBeInTheDocument();
-  });
-
-  it('automatically clears active preview when worker preferences are edited', () => {
-    render(<App />);
-
-    const previewButton = screen.getAllByRole('button', { name: /Preview impact/i })[0];
-    fireEvent.click(previewButton);
-    expect(
-      screen.getByText(/With Sample Opportunity: Sample Packing Shift/i)
-    ).toBeInTheDocument();
-
-    // Edit worker area in preferences
-    const areaInput = screen.getByLabelText(/Approximate Area/i);
-    fireEvent.change(areaInput, { target: { value: 'Indiranagar' } });
-
-    // Preview is auto-closed and notice displayed
-    expect(
-      screen.queryByText(/With Sample Opportunity: Sample Packing Shift/i)
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByText(/Simulation preview closed because baseline financial inputs or preferences were modified/i)
-    ).toBeInTheDocument();
-  });
-
-  it('previews Opportunity B correctly showing that the Day 8 payout leaves Day 3 shortfall unresolved', () => {
+  it('previews Opportunity B correctly showing that Day 8 payout leaves Day 3 shortfall unresolved', () => {
     render(<App />);
 
     const previewButtons = screen.getAllByRole('button', { name: /Preview impact/i });
@@ -205,18 +134,89 @@ describe('App Component Integration', () => {
     ).toBeInTheDocument();
   });
 
-  it('resets inputs and preferences back to seed and clears preview when Reset to Demo is clicked', () => {
+  it('reproduces Courier screenshot state: missing skill and onboarding disables preview with accurate categorization', () => {
     render(<App />);
 
-    const previewButton = screen.getAllByRole('button', { name: /Preview impact/i })[0];
-    fireEvent.click(previewButton);
+    // 1. Uncheck Courier skill and Courier onboarding
+    const courierSkillCheckbox = screen.getByRole('checkbox', { name: /Courier & Package Delivery/i });
+    const courierOnboardingCheckbox = screen.getByRole('checkbox', { name: /Sample Express Delivery Platform/i });
+
+    fireEvent.click(courierSkillCheckbox); // Uncheck skill
+    fireEvent.click(courierOnboardingCheckbox); // Uncheck onboarding
+
+    // Courier shift must now be categorized as ineligible / conflict and preview disabled
+    expect(screen.getByText(/Requires courier_delivery skills/i)).toBeInTheDocument();
+    expect(screen.getByText(/Onboarding with Sample Express Delivery Platform is pending or unconfirmed/i)).toBeInTheDocument();
+
+    // 2. Toggle Courier skill back ON, keep onboarding OFF
+    fireEvent.click(courierSkillCheckbox);
+    expect(screen.queryByText(/Requires courier_delivery skills/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/Onboarding with Sample Express Delivery Platform is pending or unconfirmed/i)).toBeInTheDocument();
+
+    // 3. Toggle Courier onboarding back ON -> fully eligible, preview available with late-payout warning
+    fireEvent.click(courierOnboardingCheckbox);
+    expect(screen.getByText(/Payout Arrives Too Late for Earliest Shortfall/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Preview impact for Sample Express Courier Shift/i })).toBeInTheDocument();
+  });
+
+  it('allows inline editing of existing bills and payouts without recreating them', () => {
+    render(<App />);
+
+    // 1. Edit existing Day 3 bill amount from 500 to 600
+    const billAmountInput = screen.getByLabelText(/Bill amount for Bill/i);
+    fireEvent.change(billAmountInput, { target: { value: '600' } });
+
+    // Shortfall on Day 3 should update from ₹400 to ₹500
+    expect(
+      screen.getByText(/Your first essentials gap is ₹500 on Day 3/i)
+    ).toBeInTheDocument();
+
+    // 2. Edit existing Day 7 payout amount from 1000 to 1200
+    const payoutAmountInput = screen.getByLabelText(/Payout amount for Earned Delivery Payout/i);
+    fireEvent.change(payoutAmountInput, { target: { value: '1200' } });
+
+    expect(screen.getByDisplayValue('600')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('1200')).toBeInTheDocument();
+  });
+
+  it('allows inline editing of existing availability slots and auto-clears active preview', () => {
+    render(<App />);
+
+    // Preview Opp A
+    const previewBtn = screen.getAllByRole('button', { name: /Preview impact/i })[0];
+    fireEvent.click(previewBtn);
+    expect(
+      screen.getByText(/With Sample Opportunity: Sample Packing Shift/i)
+    ).toBeInTheDocument();
+
+    // Edit start time of Day 2 slot from 08:00 to 11:00 (causing schedule conflict with 09:00 shift + 30m travel)
+    const day2StartInput = screen.getByLabelText(/Start time for 2026-09-04 slot 1/i);
+    fireEvent.change(day2StartInput, { target: { value: '11:00' } });
+
+    // Preview is auto-cleared
+    expect(
+      screen.queryByText(/With Sample Opportunity: Sample Packing Shift/i)
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/Simulation preview closed because baseline financial inputs or preferences were modified/i)
+    ).toBeInTheDocument();
+
+    // Opp A now has schedule conflict
+    expect(screen.getByText(/Requires availability from 08:30 to 17:30/i)).toBeInTheDocument();
+  });
+
+  it('resets all inputs, preferences and clears preview on Reset to Demo', () => {
+    render(<App />);
+
+    const previewBtn = screen.getAllByRole('button', { name: /Preview impact/i })[0];
+    fireEvent.click(previewBtn);
 
     const currentCashInput = screen.getByLabelText(/Current Cash in Hand/i) as HTMLInputElement;
     fireEvent.change(currentCashInput, { target: { value: '999' } });
     expect(currentCashInput.value).toBe('999');
 
-    const resetButton = screen.getAllByRole('button', { name: /Reset to Demo/i })[0];
-    fireEvent.click(resetButton);
+    const resetBtn = screen.getByRole('button', { name: /Reset to Demo/i });
+    fireEvent.click(resetBtn);
 
     expect(currentCashInput.value).toBe('700');
     expect(

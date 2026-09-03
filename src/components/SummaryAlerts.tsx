@@ -7,119 +7,144 @@ interface SummaryAlertsProps {
   safetyBufferPaise: Paise;
 }
 
-export const SummaryAlerts: React.FC<SummaryAlertsProps> = ({ summary, safetyBufferPaise }) => {
+export const SummaryAlerts: React.FC<SummaryAlertsProps> = ({
+  summary,
+  safetyBufferPaise,
+}) => {
   const {
     earliestEssentialShortfall,
     earliestBufferBreach,
-    overdueBillsReservedOnDay1,
-    excludedPayouts,
+    minHorizonBalancePaise,
+    finalClosingBalancePaise,
+    days,
   } = summary;
 
-  // Shortened dynamic summary based on exact calculated state
-  let dynamicSummaryText = '';
-  if (earliestEssentialShortfall) {
-    dynamicSummaryText = `First essential shortfall: ${formatINR(
-      earliestEssentialShortfall.deficitPaise
-    )} on Day ${earliestEssentialShortfall.dayIndex}. Reaching the ${formatINR(
-      safetyBufferPaise
-    )} safety buffer at that point requires ${formatINR(
-      earliestEssentialShortfall.bufferInclusiveGapPaise
-    )} total. Later days may require more.`;
-  } else if (earliestBufferBreach) {
-    dynamicSummaryText = `No essential shortfall projected. Cash first falls below your ${formatINR(
-      safetyBufferPaise
-    )} safety buffer on Day ${earliestBufferBreach.dayIndex} (${
-      earliestBufferBreach.formattedDate
-    }) with a ${formatINR(earliestBufferBreach.bufferDeficitPaise)} buffer gap.`;
-  } else {
-    dynamicSummaryText = `No essential shortfall or safety buffer gap projected across all 14 days.`;
-  }
+  const hasShortfall = !!earliestEssentialShortfall;
+  const hasBufferBreach = !!earliestBufferBreach;
+
+  // Find the day corresponding to the lowest projected cash over 14 days
+  const lowestCashDay = days.find(
+    (d) => d.minIntradayBalancePaise === minHorizonBalancePaise
+  );
 
   return (
-    <div>
-      {/* Metric Cards Grid */}
-      <div className="summary-grid">
-        {/* Card 1: Earliest Essential Shortfall */}
-        <div
-          className={`metric-card ${
-            earliestEssentialShortfall ? 'metric-card-danger' : 'metric-card-success'
-          }`}
-        >
-          <div className="metric-label">Earliest Essential Shortfall</div>
-          {earliestEssentialShortfall ? (
-            <>
-              <div className="metric-value amount-negative">
-                {formatINR(earliestEssentialShortfall.deficitPaise)} Deficit
-              </div>
-              <div className="metric-sub">
-                Day {earliestEssentialShortfall.dayIndex} ({earliestEssentialShortfall.formattedDate})
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="metric-value amount-positive">None</div>
-              <div className="metric-sub">All daily essentials covered across 14 days</div>
-            </>
-          )}
+    <div id="financial-summary" className="card" style={{ marginBottom: '1.25rem' }}>
+      {/* Primary Result Headline */}
+      <div
+        className={`metric-card ${
+          hasShortfall
+            ? 'metric-card-danger'
+            : hasBufferBreach
+            ? 'metric-card-warning'
+            : 'metric-card-success'
+        }`}
+        style={{ marginBottom: '1rem' }}
+      >
+        <div className="metric-label" style={{ marginBottom: '0.25rem' }}>
+          {hasShortfall
+            ? 'Earliest Essential Shortfall'
+            : hasBufferBreach
+            ? 'First Below Safety Buffer Target'
+            : '14-Day Essential Expense Coverage'}
         </div>
 
-        {/* Card 2: Buffer-Inclusive Gap at Shortfall Event */}
-        {earliestEssentialShortfall && (
-          <div className="metric-card metric-card-warning">
-            <div className="metric-label">Buffer-Inclusive Gap (At Shortfall)</div>
-            <div className="metric-value">
-              {formatINR(earliestEssentialShortfall.bufferInclusiveGapPaise)}
+        {hasShortfall ? (
+          <div>
+            <div className="metric-value amount-negative" style={{ fontSize: '1.65rem' }}>
+              Your first essentials gap is {formatINR(earliestEssentialShortfall.deficitPaise)} on Day {earliestEssentialShortfall.dayIndex} ({earliestEssentialShortfall.formattedDate})
             </div>
-            <div className="metric-sub">
-              Includes {formatINR(earliestEssentialShortfall.deficitPaise)} essential deficit + {formatINR(safetyBufferPaise)} buffer target.
+            <div className="metric-sub" style={{ marginTop: '0.4rem', fontSize: '0.9rem' }}>
+              Projected cash falls below ₹0 at this point. Reaching your {formatINR(safetyBufferPaise)} safety buffer cushion on the same day requires{' '}
+              <strong>{formatINR(earliestEssentialShortfall.bufferInclusiveGapPaise)}</strong> total (includes the {formatINR(earliestEssentialShortfall.deficitPaise)} essential deficit; not an extra charge).
+            </div>
+          </div>
+        ) : hasBufferBreach ? (
+          <div>
+            <div className="metric-value" style={{ color: 'var(--color-warning)', fontSize: '1.45rem' }}>
+              First below safety buffer on Day {earliestBufferBreach.dayIndex} ({earliestBufferBreach.formattedDate})
+            </div>
+            <div className="metric-sub" style={{ marginTop: '0.4rem', fontSize: '0.9rem' }}>
+              All essential expenses are covered, but projected cash dips to {formatINR(earliestBufferBreach.minBalancePaise)} ({formatINR(earliestBufferBreach.bufferDeficitPaise)} below your {formatINR(safetyBufferPaise)} target cushion).
+            </div>
+          </div>
+        ) : (
+          <div>
+            <div className="metric-value amount-positive" style={{ fontSize: '1.45rem' }}>
+              All essential expenses covered across 14 days
+            </div>
+            <div className="metric-sub" style={{ marginTop: '0.4rem', fontSize: '0.9rem' }}>
+              Projected cash maintains at least your {formatINR(safetyBufferPaise)} safety buffer cushion through the forecast horizon.
             </div>
           </div>
         )}
+      </div>
 
-        {/* Card 3: First Below Safety Buffer */}
+      {/* Secondary Context Metric Cards */}
+      <div className="summary-grid" style={{ marginBottom: 0 }}>
+        {/* Card 1: Buffer Status */}
         <div
           className={`metric-card ${
             earliestBufferBreach ? 'metric-card-warning' : 'metric-card-success'
           }`}
         >
-          <div className="metric-label">First Below Safety Buffer</div>
+          <div className="metric-label">Safety Buffer Status</div>
           {earliestBufferBreach ? (
             <>
-              <div className="metric-value" style={{ fontSize: '1.25rem' }}>
+              <div className="metric-value" style={{ fontSize: '1.2rem' }}>
                 Day {earliestBufferBreach.dayIndex} ({earliestBufferBreach.formattedDate})
               </div>
               <div className="metric-sub">
-                {formatINR(earliestBufferBreach.bufferDeficitPaise)} below {formatINR(safetyBufferPaise)} buffer. (Cushion deficit; not an extra charge on top of essential shortfall).
+                {formatINR(earliestBufferBreach.bufferDeficitPaise)} cushion gap relative to {formatINR(safetyBufferPaise)} target.
               </div>
             </>
           ) : (
             <>
-              <div className="metric-value amount-positive">Protected</div>
-              <div className="metric-sub">Maintains ≥ {formatINR(safetyBufferPaise)} cushion every day</div>
+              <div className="metric-value amount-positive" style={{ fontSize: '1.2rem' }}>
+                Protected
+              </div>
+              <div className="metric-sub">
+                Cushion remains ≥ {formatINR(safetyBufferPaise)} all 14 days.
+              </div>
             </>
           )}
         </div>
-      </div>
 
-      {/* Overdue Bills Notice */}
-      {overdueBillsReservedOnDay1.length > 0 && (
-        <div className="notice-box">
-          <strong>Overdue Bills Accounted:</strong> Reserved {overdueBillsReservedOnDay1.length} overdue bill(s) totaling{' '}
-          {formatINR(overdueBillsReservedOnDay1.reduce((sum, b) => sum + b.amountPaise, 0))} on Day 1.
+        {/* Card 2: Lowest Projected Cash Over 14 Days */}
+        <div className="metric-card">
+          <div className="metric-label">Lowest projected cash over 14 days</div>
+          <div
+            className={`metric-value ${
+              minHorizonBalancePaise < 0 ? 'amount-negative' : ''
+            }`}
+            style={{ fontSize: '1.2rem' }}
+          >
+            {formatINR(minHorizonBalancePaise)}
+            {lowestCashDay && (
+              <span style={{ fontSize: '0.825rem', fontWeight: 500, marginLeft: '0.4rem', color: 'var(--color-text-muted)' }}>
+                on Day {lowestCashDay.dayIndex} ({lowestCashDay.formattedDate})
+              </span>
+            )}
+          </div>
+          <div className="metric-sub">
+            Lowest balance during the 14-day forecast (expenses counted before payouts).
+          </div>
         </div>
-      )}
 
-      {/* Excluded Overdue Payouts Notice */}
-      {excludedPayouts.length > 0 && (
-        <div className="notice-box" style={{ backgroundColor: '#fff1f2', borderColor: '#fecdd3', color: '#9f1239' }}>
-          <strong>Past Payouts Excluded:</strong> {excludedPayouts.length} payout(s) have past expected dates and are excluded from automatic forecast credit (e.g.{' '}
-          {excludedPayouts.map((e) => `"${e.payout.title}"`).join(', ')}).
+        {/* Card 3: Final 14-Day Closing Cash */}
+        <div className="metric-card">
+          <div className="metric-label">Day 14 Projected Cash</div>
+          <div
+            className={`metric-value ${
+              finalClosingBalancePaise < 0 ? 'amount-negative' : 'amount-positive'
+            }`}
+            style={{ fontSize: '1.2rem' }}
+          >
+            {formatINR(finalClosingBalancePaise)}
+          </div>
+          <div className="metric-sub">
+            Projected end-of-period cash balance after all 14 days.
+          </div>
         </div>
-      )}
-
-      {/* Dynamic Calculated Summary */}
-      <div className="explanation-box">
-        <strong>14-Day Forecast Summary:</strong> {dynamicSummaryText}
       </div>
     </div>
   );
