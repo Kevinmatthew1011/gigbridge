@@ -1,13 +1,19 @@
 import React from 'react';
-import { OpportunityCatalogEvaluation, OpportunityEvaluation } from '../types/opportunity';
+import { OpportunityCatalogEvaluation, OpportunityEvaluation, Opportunity } from '../types/opportunity';
 import { formatINR } from '../utils/formatters';
 import { formatDateDisplay } from '../utils/dates';
 
 interface OpportunityCatalogProps {
   catalogEvaluation: OpportunityCatalogEvaluation;
+  selectedOpportunityId: string | null;
+  onSelectOpportunity: (opportunity: Opportunity) => void;
 }
 
-const OpportunityCard: React.FC<{ evaluation: OpportunityEvaluation }> = ({ evaluation }) => {
+const OpportunityCard: React.FC<{
+  evaluation: OpportunityEvaluation;
+  isSelected: boolean;
+  onSelect: (opportunity: Opportunity) => void;
+}> = ({ evaluation, isSelected, onSelect }) => {
   const {
     opportunity,
     category,
@@ -16,7 +22,16 @@ const OpportunityCard: React.FC<{ evaluation: OpportunityEvaluation }> = ({ eval
     totalIncrementalCostsPaise,
     netEarningsPaise,
     reasons,
+    isUnaffordable,
+    onboardingPending,
+    scheduleConflict,
+    transportMismatch,
+    skillsMismatch,
+    timingUncertain,
   } = evaluation;
+
+  // Feasibility check for enabling preview
+  const isFeasibleForPreview = !scheduleConflict && !transportMismatch && !skillsMismatch && !onboardingPending && !timingUncertain && !isUnaffordable;
 
   const getBadge = () => {
     switch (category) {
@@ -42,6 +57,8 @@ const OpportunityCard: React.FC<{ evaluation: OpportunityEvaluation }> = ({ eval
           : category === 'ineligible_conflict'
           ? '4px solid var(--color-danger)'
           : '4px solid var(--color-warning)',
+        borderColor: isSelected ? 'var(--color-primary)' : undefined,
+        backgroundColor: isSelected ? '#f0f7ff' : undefined,
         marginBottom: '1rem',
       }}
     >
@@ -52,7 +69,9 @@ const OpportunityCard: React.FC<{ evaluation: OpportunityEvaluation }> = ({ eval
             Platform: {opportunity.platformName} • Area: {opportunity.approximateArea}
           </div>
         </div>
-        <div>{getBadge()}</div>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          {getBadge()}
+        </div>
       </div>
 
       {/* Work Schedule & Travel */}
@@ -101,22 +120,57 @@ const OpportunityCard: React.FC<{ evaluation: OpportunityEvaluation }> = ({ eval
         <strong>Expected Payout:</strong> {opportunity.expectedPayout.description}
       </div>
 
-      {/* Reasons & Evaluation Notes */}
-      {reasons.length > 0 && (
-        <div style={{ marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px dashed var(--color-border)', fontSize: '0.825rem' }}>
-          <strong>Assessment Details:</strong>
-          <ul style={{ paddingLeft: '1.2rem', marginTop: '0.25rem', color: isEligible ? 'var(--color-text-muted)' : '#991b1b' }}>
-            {reasons.map((r, idx) => (
-              <li key={idx}>{r}</li>
-            ))}
-          </ul>
+      {/* Action / Assessment Details */}
+      <div
+        style={{
+          marginTop: '0.75rem',
+          paddingTop: '0.5rem',
+          borderTop: '1px dashed var(--color-border)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '0.5rem',
+        }}
+      >
+        <div style={{ fontSize: '0.825rem', flex: 1 }}>
+          {reasons.length > 0 ? (
+            <ul style={{ paddingLeft: '1.2rem', margin: 0, color: isEligible ? 'var(--color-text-muted)' : '#991b1b' }}>
+              {reasons.map((r, idx) => (
+                <li key={idx}>{r}</li>
+              ))}
+            </ul>
+          ) : (
+            <span style={{ color: 'var(--color-success)', fontWeight: 500 }}>
+              ✓ All schedule, skills, transport, and onboarding criteria confirmed.
+            </span>
+          )}
         </div>
-      )}
+
+        {/* Enabled Preview button only for confirmed feasible opportunities */}
+        {isFeasibleForPreview ? (
+          <button
+            type="button"
+            onClick={() => onSelect(opportunity)}
+            className={`btn btn-sm ${isSelected ? 'btn-secondary' : 'btn-primary'}`}
+          >
+            {isSelected ? 'Previewing ✓' : 'Preview impact'}
+          </button>
+        ) : (
+          <span className="badge badge-neutral" style={{ fontSize: '0.75rem' }}>
+            Preview Unavailable
+          </span>
+        )}
+      </div>
     </div>
   );
 };
 
-export const OpportunityCatalog: React.FC<OpportunityCatalogProps> = ({ catalogEvaluation }) => {
+export const OpportunityCatalog: React.FC<OpportunityCatalogProps> = ({
+  catalogEvaluation,
+  selectedOpportunityId,
+  onSelectOpportunity,
+}) => {
   const { groupedEvaluations, hasEarliestGap, earliestGapDayIndex } = catalogEvaluation;
   const { eligibleCandidates, payoutTooLate, uncertainTerms, ineligibleConflicts } = groupedEvaluations;
 
@@ -151,7 +205,12 @@ export const OpportunityCatalog: React.FC<OpportunityCatalogProps> = ({ catalogE
           </div>
         ) : (
           eligibleCandidates.map((evaluation) => (
-            <OpportunityCard key={evaluation.opportunity.id} evaluation={evaluation} />
+            <OpportunityCard
+              key={evaluation.opportunity.id}
+              evaluation={evaluation}
+              isSelected={selectedOpportunityId === evaluation.opportunity.id}
+              onSelect={onSelectOpportunity}
+            />
           ))
         )}
       </div>
@@ -166,7 +225,12 @@ export const OpportunityCatalog: React.FC<OpportunityCatalogProps> = ({ catalogE
             These opportunities match your schedule and skills, but their expected payout arrives after your earliest essential shortfall. They cannot resolve the immediate Day {earliestGapDayIndex} deficit, though they provide later income.
           </p>
           {payoutTooLate.map((evaluation) => (
-            <OpportunityCard key={evaluation.opportunity.id} evaluation={evaluation} />
+            <OpportunityCard
+              key={evaluation.opportunity.id}
+              evaluation={evaluation}
+              isSelected={selectedOpportunityId === evaluation.opportunity.id}
+              onSelect={onSelectOpportunity}
+            />
           ))}
         </div>
       )}
@@ -181,7 +245,12 @@ export const OpportunityCatalog: React.FC<OpportunityCatalogProps> = ({ catalogE
             These opportunities require confirmed platform onboarding or have uncertain settlement timing that cannot be verified.
           </p>
           {uncertainTerms.map((evaluation) => (
-            <OpportunityCard key={evaluation.opportunity.id} evaluation={evaluation} />
+            <OpportunityCard
+              key={evaluation.opportunity.id}
+              evaluation={evaluation}
+              isSelected={selectedOpportunityId === evaluation.opportunity.id}
+              onSelect={onSelectOpportunity}
+            />
           ))}
         </div>
       )}
@@ -193,7 +262,12 @@ export const OpportunityCatalog: React.FC<OpportunityCatalogProps> = ({ catalogE
             Ineligible / Schedule & Skill Conflicts
           </h3>
           {ineligibleConflicts.map((evaluation) => (
-            <OpportunityCard key={evaluation.opportunity.id} evaluation={evaluation} />
+            <OpportunityCard
+              key={evaluation.opportunity.id}
+              evaluation={evaluation}
+              isSelected={selectedOpportunityId === evaluation.opportunity.id}
+              onSelect={onSelectOpportunity}
+            />
           ))}
         </div>
       )}

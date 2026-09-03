@@ -2,7 +2,7 @@
 
 > **Disclaimer:** Fictional demo — sample money and opportunities.
 
-GigBridge is a liquidity runway, cash-flow forecasting, and fictional sample opportunity evaluation tool designed to help delivery workers understand their 14-day cash flow, evaluate essential expense coverage, track safety buffer cushions, and check opportunity feasibility.
+GigBridge is a liquidity runway, cash-flow forecasting, and fictional sample opportunity evaluation tool designed to help delivery workers understand their 14-day cash flow, evaluate essential expense coverage, track safety buffer cushions, and preview single-opportunity impact.
 
 ---
 
@@ -100,12 +100,26 @@ Spins up a local web server serving the built `dist/` directory.
 - **Opportunity Catalog UI (`src/components/OpportunityCatalog.tsx`):**
   - Displays structured opportunity cards with gross pay, itemized incremental costs, net pay, schedule with travel duration, expected payout timing, and clear evaluation reasons.
   - Supports *"No eligible matches"* state and neutral *"Continue without extra work"* option (leaving baseline cash flow untouched).
-  - Baseline cash flow is strictly isolated and unaffected by preference changes or catalog browsing.
+  - Enabled *"Preview impact"* action on confirmed feasible opportunities; disabled preview with clear reasons on uncertain/ineligible options.
+
+### Feature 3: Single-Opportunity Simulation Engine & Impact Preview UI
+- **Pure Simulation Engine (`src/utils/simulationEngine.ts`):**
+  - Accepts baseline financial inputs, worker preferences, and one candidate opportunity.
+  - Reuses financial and eligibility rules, producing a non-mutating simulated forecast.
+  - Compares the exact chronological event of the baseline shortfall (baseline deficit vs. remaining deficit at that event).
+  - Computes simulated first below-buffer event and earliest remaining shortfall across the 14-day horizon.
+- **Single-Opportunity Impact Preview UI (`src/components/OpportunitySimulationPreview.tsx`):**
+  - Displays the single active preview with prominent hypothetical preview disclaimer.
+  - Shows original shortfall improvement (e.g. Day 3 shortfall covered), first below-buffer event (Day 4), and remaining shortfall (Day 5).
+  - Side-by-side 14-day baseline vs. simulation timeline table with candidate cost and payout cash events.
+  - Single-preview model: selecting another opportunity cleanly replaces the previous preview without accumulating gigs.
+  - Automatic invalidation: editing baseline financial inputs or preferences automatically clears active preview with an explanatory notice.
+  - "Close Preview" / "Continue Without Extra Work" action returning cleanly to baseline.
 
 ---
 
 ## Current Limitations
 
 - **In-Memory State:** All inputs, preferences, and timeline modifications are stored in React component memory; refreshing the page resets state back to the seed demo scenario.
-- **No User-Facing Simulation:** Interactive simulation of opportunity impact on the timeline is scheduled for subsequent feature milestones.
+- **Single-Opportunity Preview Only:** Multi-gig combination preview and automatic ranking algorithms are intentionally excluded.
 - **No External Integrations:** No backend APIs, database persistence, transaction history tracking, offline synchronization, or banking integrations.
