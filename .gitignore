@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+
+# Production output
+dist/
+dist-ssr/
+
+# Test coverage
+coverage/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Local / temporary files & logs
+*.local
+*.log
+.DS_Store
+Thumbs.db
+
+# IDE & Editor artifacts
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

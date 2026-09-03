@@ -1,0 +1,10 @@
+# Set default behavior for all files: automatic text detection and LF normalization
+* text=auto eol=lf
+
+# Explicit binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
