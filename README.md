@@ -68,6 +68,13 @@ npm run preview
 ```
 Spins up a local web server serving the built `dist/` directory.
 
+### Automated Checks (CI)
+GitHub Actions automatically validates repository quality on pushes to `main`, pull requests targeting `main`, and manual dispatch:
+- **Workflow:** `.github/workflows/quality-checks.yml`
+- **Environment:** Ubuntu Linux on Node.js 20 LTS with npm dependency caching.
+- **Commands:** `npm ci`, `npm test`, `npm run typecheck`, and `npm run build`.
+- **Security & Offline Assurance:** Runs with `EXPLAIN_PROVIDER=mock`, contents read-only permissions, and requires no API keys or external network requests.
+
 ---
 
 ## Implemented Features
